@@ -70,9 +70,19 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
 2. Open the Customizer: **Window → Customizer**.
 3. Set:
    - **Model** — Net, Tape, Net Rigid, or Rigid
-   - **Columns** / **Rows** — grid size in 42 mm cells
+   - **Columns** / **Rows** — grid size in 42 mm cells, in 0.5 steps from 1 to 20.5.
+     A `.5` appends a fully-enclosed half-cell (21 mm) column and/or row, for fitting
+     odd drawer sizes (e.g. `2.5` = two full cells plus a half)
+   - **Drawer Spacers** — front / back / left / right, in mm (0 = none, 41 mm max).
+     Adds a triangular spacer that projects outward from that edge so the plate sits
+     flush in a drawer. Each is independent, so you can pad just the sides you need.
+     Past 41 mm, add another Gridfinity cell instead.
    - **Advanced** — pitch (42 mm = standard Gridfinity) and curve smoothness
 4. `F5` to preview, `F6` to render, then **File → Export → Export as STL**.
+
+The **Console** (**View → Console**) prints the total outer footprint in mm
+(`Total size: … wide (X) x … deep (Y)`), including any spacers, so you can check it
+against your drawer before exporting.
 
 ## Customizing your layout (Bambu Studio, no OpenSCAD needed)
 
