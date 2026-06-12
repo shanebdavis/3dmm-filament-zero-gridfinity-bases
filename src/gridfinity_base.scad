@@ -1,8 +1,8 @@
 // ============================================================
 //  AT Ultra-Light Gridfinity Base  —  parametric assembler
 // ============================================================
-//  Keep this .scad file in the SAME folder as the corner STLs,
-//  because import() uses relative paths.
+//  Keep this repo layout intact: this .scad lives in src/ and the
+//  corner STLs live in ../stl/, because import() uses relative paths.
 //
 //  Open in OpenSCAD, then: Window menu -> Customizer to get the
 //  dropdown + sliders below. F5 = preview, F6 = render, then
@@ -11,7 +11,7 @@
 
 /* [Model] */
 // Which base style to build
-model = "net_light"; // [net_light:Net Light, net_heavy:Net Heavy, rigid:Solid (Rigid)]
+model = "net_light"; // [net_light:Net Light, net_heavy:Net Heavy, net_rigid:Net Rigid, rigid:Solid (Rigid)]
 
 /* [Grid] */
 // Squares wide
@@ -31,23 +31,29 @@ $fn = 48;
 // in space (Shapr3D laid them out side by side); we subtract it so
 // every corner's OUTER corner lands at the origin (0,0).
 corner_file =
-    model == "net_light" ? "AT Net Light Corner.stl" :
-    model == "net_heavy" ? "AT Net Heavy Corner.stl" :
-                           "AT Rigid Corner.stl";
+    model == "net_light" ? "../stl/AT Net Light Corner.stl" :
+    model == "net_heavy" ? "../stl/AT Net Heavy Corner.stl" :
+    model == "net_rigid" ? "../stl/AT Net Rigid Corner.stl" :
+                           "../stl/AT Rigid Corner.stl";
 
 corner_offset =
     model == "net_light" ? [250, 200, 0] :
     model == "net_heavy" ? [300, 200, 0] :
+    model == "net_rigid" ? [350, 250, 0] :
                            [350, 200, 0];
 
-// Corner footprint along an edge (mm)
-corner_size = (model == "rigid") ? 12 : 5;
+// Corner footprint along an edge (mm). Net Rigid shares the Rigid corner's 12mm size.
+corner_size = (model == "rigid" || model == "net_rigid") ? 12 : 5;
 
-// Connector cross-section: width (across the edge) x height (up)
+// Connector cross-section: width (across the edge) x height (up).
+// Net Rigid uses its own connector: 0.9 wide (shares rigid's width, falls through
+// the default) but only 3.5 tall, matching its 3.5mm corner height (vs rigid's 4.0).
 conn_w = model == "net_light" ? 0.5 :
          model == "net_heavy" ? 2.15 :
-                                0.9;   // rigid
-conn_h = (model == "rigid") ? 4.0 : 0.5;
+                                0.9;   // rigid + net_rigid
+conn_h = model == "rigid"     ? 4.0 :
+         model == "net_rigid" ? 3.5 :
+                                0.5;
 
 // ------------------------------------------------------------
 // One imported corner, normalized so its outer corner is at origin
