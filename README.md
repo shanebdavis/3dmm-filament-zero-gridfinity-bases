@@ -76,7 +76,8 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
    - **Drawer Spacers** — front / back / left / right, in mm (0 = none, 41 mm max).
      Adds a triangular spacer that projects outward from that edge so the plate sits
      flush in a drawer. Each is independent, so you can pad just the sides you need.
-     Past 41 mm, add another Gridfinity cell instead.
+     A tie-rail runs along the outer edge of each spaced side, locking the spacers
+     together for rigidity. Past 41 mm, add another Gridfinity cell instead.
    - **Advanced** — pitch (42 mm = standard Gridfinity) and curve smoothness
 4. `F5` to preview, `F6` to render, then **File → Export → Export as STL**.
 

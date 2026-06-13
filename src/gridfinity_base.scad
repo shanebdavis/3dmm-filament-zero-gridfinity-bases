@@ -83,6 +83,12 @@ module corner_part() {
 ext_file = "../stl/AT Extension.stl";
 ext_base_len = 5;   // authored prism length (mm); we scale this to the requested distance
 
+// Spacer tie-rail: a beam run along the far (outer) edge of the spacers to lock the
+// otherwise-cantilevered prisms together. Always the Net Heavy connector profile
+// (2.15 wide across the edge x 0.5 tall), regardless of the chosen model.
+rail_w = 2.15;
+rail_h = 0.5;
+
 // One extension prism, normalized so the mating face is at X=0 and the tall ridge edge
 // is at Y=0, tapering toward +Y and sitting on the bed (Z 0..3.5). Stretched along +X
 // (outward) to length L, with a tiny inward overlap so it welds cleanly to the plate.
@@ -167,29 +173,37 @@ module spacers() {
     W = plate_w(); H = plate_h();
     nx = len(xs); ny = len(ys);
 
-    if (ext_front > 0)                                  // front edge (Y = 0), outward -Y
+    if (ext_front > 0) {                                // front edge (Y = 0), outward -Y
         for (k = [0 : nx - 1]) { cx = xs[k];
             if (k != nx - 1) translate([cx, 0, 0])                 rotate([0,0,-90]) extension_part(ext_front);
             if (k != 0)      translate([cx, 0, 0]) mirror([1,0,0]) rotate([0,0,-90]) extension_part(ext_front);
         }
+        translate([0, -ext_front, 0]) cube([W, rail_w, rail_h]);          // tie-rail at the tips
+    }
 
-    if (ext_back > 0)                                   // back edge (Y = H), outward +Y
+    if (ext_back > 0) {                                 // back edge (Y = H), outward +Y
         for (k = [0 : nx - 1]) { cx = xs[k];
             if (k != nx - 1) translate([cx, H, 0]) mirror([1,0,0]) rotate([0,0, 90]) extension_part(ext_back);
             if (k != 0)      translate([cx, H, 0])                 rotate([0,0, 90]) extension_part(ext_back);
         }
+        translate([0, H + ext_back - rail_w, 0]) cube([W, rail_w, rail_h]);
+    }
 
-    if (ext_left > 0)                                   // left edge (X = 0), outward -X
+    if (ext_left > 0) {                                 // left edge (X = 0), outward -X
         for (k = [0 : ny - 1]) { cy = ys[k];
             if (k != ny - 1) translate([0, cy, 0]) mirror([0,1,0]) rotate([0,0,180]) extension_part(ext_left);
             if (k != 0)      translate([0, cy, 0])                 rotate([0,0,180]) extension_part(ext_left);
         }
+        translate([-ext_left, 0, 0]) cube([rail_w, H, rail_h]);
+    }
 
-    if (ext_right > 0)                                  // right edge (X = W), outward +X
+    if (ext_right > 0) {                                // right edge (X = W), outward +X
         for (k = [0 : ny - 1]) { cy = ys[k];
             if (k != ny - 1) translate([W, cy, 0])                 extension_part(ext_right);
             if (k != 0)      translate([W, cy, 0]) mirror([0,1,0]) extension_part(ext_right);
         }
+        translate([W + ext_right - rail_w, 0, 0]) cube([rail_w, H, rail_h]);
+    }
 }
 
 // Total outer footprint, including any drawer spacers. Printed to the Console
