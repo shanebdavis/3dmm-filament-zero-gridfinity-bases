@@ -1,10 +1,2 @@
-.DS_Store
-*.stl.bak
-/exports/
-
-# Build output — ignored, but keep the folder via .gitkeep
-/build/*
-!/build/.gitkeep
-
-# Local Claude Code artifacts (debug screenshots, etc.)
-.claude/
+__pycache__/
+*.pyc

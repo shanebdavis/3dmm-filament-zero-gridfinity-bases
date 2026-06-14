@@ -15,9 +15,11 @@ a stiffness spectrum — pick based on how much rigidity you want (most flexible
 - **Net Beam** — The Tape corner paired with a taller beam connector (a thin web rising 4 mm at
   the outer rim with a low base foot), so the grid sides resist flexing far better than Tape for
   only a little more filament. (`net_beam` in the source.)
-- **Net Rigid** — A blend between Tape and Rigid: it shares the Rigid corner's 12 mm footprint,
-  but with lighter blended geometry and its own shorter connector (3.5 mm tall vs Rigid's
-  4.0 mm) — stiffer than Tape, lighter than solid. (`net_rigid` in the source.)
+- **Solid+** — The Solid base with connectable corners. It's identical to Solid — same
+  connectors, same interior corners — except the outer-perimeter corners use a special
+  profile designed to mate with neighbouring prints. Any corner on an edge that has a drawer
+  spacer (including an outer corner with a spacer in either direction) falls back to the
+  plain Solid corner. (`net_rigid` in the source; labelled *Solid+ (experimental)*.)
 - **Rigid** — Traditional-looking solid Gridfinity base. The familiar look, still trimmed for speed. (`rigid` in the source.)
 
 ## Benchmarks
@@ -50,12 +52,16 @@ Highlights:
 ## Repo layout
 
 ```
-src/   OpenSCAD source — the parametric assembler
-stl/   Source geometry: per-variant Corner and Connector STLs
+src/    OpenSCAD source — the parametric assembler
+stl/    Source geometry: per-variant Corner and Connector STLs
+tools/  STL → polyhedron() inliner (regenerates the geometry baked into the .scad)
 ```
 
-`src/gridfinity_base.scad` imports the corner STLs from `../stl/` using relative
-paths, so keep this folder structure intact.
+`src/gridfinity_base.scad` is **self-contained**: the corner / connector geometry is
+inlined directly as `polyhedron()` blocks, so the single file renders anywhere —
+including MakerWorld's Parametric Model Maker — with no external STL dependencies. The
+`stl/` folder is kept as the editable source of truth, and `tools/inline_stls.py`
+regenerates the inlined blocks from it. See *Inlining the geometry* below.
 
 ## Installing OpenSCAD
 
@@ -129,5 +135,62 @@ community.
 The base is assembled from two reused source parts per variant — a **corner** and a
 **connector** beam. `src/gridfinity_base.scad` places four corners per 42 mm cell and
 joins them with connector beams, then tiles that cell across your chosen grid. Because
-every cell reuses the same imported geometry, file size and slicing stay tiny even on
+every cell reuses the same inlined geometry, file size and slicing stay tiny even on
 large plates.
+
+## Inlining the geometry (and the STL winding gotcha)
+
+The corner and connector parts are modeled by hand (in Shapr3D) and live in `stl/` as
+small binary STL meshes. Rather than have the `.scad` `import()` them at render time —
+which needs the files alongside the script and is **not supported by MakerWorld's
+Parametric Model Maker** — the geometry is **inlined** into `src/gridfinity_base.scad`
+as `polyhedron()` blocks. That makes the script a single self-contained file that runs
+anywhere.
+
+The mapping lives in the source itself: each inlined module is preceded by a directive
+comment naming its STL, e.g.
+
+```
+// source-stl: AT Net Rigid Corner.stl (normalize)
+module mesh_corner_net_rigid() {
+  polyhedron( ... );
+}
+```
+
+`tools/inline_stls.py` (run from the repo root) scans those directives, reads each named
+STL from `stl/`, converts it, and rewrites that module in place — so after editing a mesh
+you just re-export the STL and run the script. `(normalize)` shifts a corner mesh so its
+outer corner lands at the origin.
+
+Per mesh, the conversion (binary STL → `polyhedron()`) is:
+
+1. **Parse** the binary STL triangles.
+2. **Weld** duplicate vertices (round to 4 dp, dedupe) into a points + faces list, so the
+   result is a clean manifold rather than triangle soup.
+3. **Normalize** corner meshes so the outer corner sits at the origin in the +X +Y
+   quadrant (the script then just rotates and places them).
+4. **Reverse the face winding** — see below.
+5. Emit `polyhedron(points=…, faces=…, convexity=6)`.
+
+### The winding gotcha
+
+STL and OpenSCAD disagree on how a triangle's vertices are ordered:
+
+- **STL** orders them **counter-clockwise as seen from outside** (the outward normal by
+  the right-hand rule).
+- **OpenSCAD `polyhedron()`** wants them **clockwise from outside**.
+
+So copying STL triangles straight into `polyhedron()` produces **inverted, inside-out
+normals**. This is easy to miss because it depends on the rendering backend:
+
+- **CGAL** (older OpenSCAD, e.g. the 2021 macOS build) re-orients faces by topology, so it
+  silently fixes the inversion — everything looks fine locally.
+- **Manifold** (newer OpenSCAD, and what **MakerWorld** uses) trusts the supplied winding,
+  so the inverted faces render inside-out.
+
+That's exactly the bug we hit: the corners and the beam connector (both `polyhedron()`)
+showed inside-out on MakerWorld while the native `cube()` connectors were fine, and the
+local Mac app looked correct either way. The fix is to **reverse every face**
+(`[a,b,c] → [a,c,b]`) during conversion. `tools/inline_stls.py` does this robustly: it
+computes each mesh's signed volume and flips the winding whenever the source comes in
+counter-clockwise, so the result is correct regardless of how the STL was exported.
