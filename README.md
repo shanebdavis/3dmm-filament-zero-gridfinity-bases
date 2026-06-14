@@ -5,13 +5,16 @@ The lightest, fastest-printing Gridfinity baseplates — now fully customizable 
 Part of the **3D Modular Madness** collection. Released on MakerWorld:
 https://makerworld.com/en/models/1384108-gridfinity-base-fastest-lightest-customizable
 
-## The four variants
+## The variants
 
 All are dramatically lighter and faster to print than anything else on MakerWorld. They form
 a stiffness spectrum — pick based on how much rigidity you want (most flexible first):
 
 - **Net** — Maximum flexibility and by far the lightest, fastest print. (`net_light` in the source.)
 - **Tape** — Semi-flexible / semi-rigid middle ground. (`net_heavy` in the source.)
+- **Net Beam** — The Tape corner paired with a taller beam connector (a thin web rising 4 mm at
+  the outer rim with a low base foot), so the grid sides resist flexing far better than Tape for
+  only a little more filament. (`net_beam` in the source.)
 - **Net Rigid** — A blend between Tape and Rigid: it shares the Rigid corner's 12 mm footprint,
   but with lighter blended geometry and its own shorter connector (3.5 mm tall vs Rigid's
   4.0 mm) — stiffer than Tape, lighter than solid. (`net_rigid` in the source.)
@@ -69,7 +72,7 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
 1. Open `src/gridfinity_base.scad` in OpenSCAD.
 2. Open the Customizer: **Window → Customizer**.
 3. Set:
-   - **Model** — Net, Tape, Net Rigid, or Rigid
+   - **Model** — Net, Tape, Net Beam, Net Rigid, or Rigid
    - **Columns** / **Rows** — grid size in 42 mm cells, in 0.5 steps from 1 to 20.5.
      A `.5` appends a fully-enclosed half-cell (21 mm) column and/or row, for fitting
      odd drawer sizes (e.g. `2.5` = two full cells plus a half)
