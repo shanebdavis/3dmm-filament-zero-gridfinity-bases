@@ -52,9 +52,10 @@ Highlights:
 ## Repo layout
 
 ```
-src/    OpenSCAD source — the parametric assembler
-stl/    Source geometry: per-variant Corner and Connector STLs
-tools/  STL → polyhedron() inliner (regenerates the geometry baked into the .scad)
+src/             OpenSCAD source — the parametric assembler
+stl/             Source geometry: per-variant Corner and Connector STLs
+tools/           STL → polyhedron() inliner (regenerates the geometry baked into the .scad)
+inline-stls.sh   Convenience wrapper: re-inline the STLs into the .scad
 ```
 
 `src/gridfinity_base.scad` is **self-contained**: the corner / connector geometry is
@@ -157,10 +158,11 @@ module mesh_corner_net_rigid() {
 }
 ```
 
-`tools/inline_stls.py` (run from the repo root) scans those directives, reads each named
-STL from `stl/`, converts it, and rewrites that module in place — so after editing a mesh
-you just re-export the STL and run the script. `(normalize)` shifts a corner mesh so its
-outer corner lands at the origin.
+Running `./inline-stls.sh` (a thin wrapper around `tools/inline_stls.py`) scans those
+directives, reads each named STL from `stl/`, converts it, and rewrites that module in
+place — so after editing a mesh you just re-export the STL and run the script. It can be
+run from anywhere; `(normalize)` shifts a corner mesh so its outer corner lands at the
+origin.
 
 Per mesh, the conversion (binary STL → `polyhedron()`) is:
 
