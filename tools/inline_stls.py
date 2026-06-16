@@ -10,8 +10,8 @@ How it works
 Each inlined mesh module in the .scad is preceded by a directive comment naming its
 source STL, e.g.:
 
-    // source-stl: AT Net Rigid Corner.stl (normalize)
-    module mesh_corner_net_rigid() {
+    // source-stl: AT Net Rigid Outer Corner.stl (normalize)
+    module mesh_corner_net_rigid_outer() {
       polyhedron( ... );
     }
 
@@ -45,10 +45,12 @@ while Manifold (newer OpenSCAD, and MakerWorld) trusts the winding and renders i
 We reverse the winding here, robustly: compute each mesh's signed volume and flip only
 when it comes in counter-clockwise, so it's correct however the STL was exported.
 """
+import glob
 import os
 import re
 import struct
 import sys
+import time
 
 SCAD = "src/gridfinity_base.scad"
 STL_DIR = "stl"
@@ -109,9 +111,9 @@ def polyhedron_body(stl_path, normalize):
     return "  polyhedron(\n    points=[%s],\n    faces=[%s], convexity=6);" % (ptss, facess)
 
 
-def main():
-    if not os.path.exists(SCAD):
-        sys.exit("run me from the repo root (%s not found)" % SCAD)
+def regenerate(verbose=True):
+    """Inline every directive's STL into SCAD. Writes only when the result actually
+    changes, so it's cheap to call in a loop. Returns the count of modules regenerated."""
     src = open(SCAD).read()
 
     seen = []
@@ -131,10 +133,64 @@ def main():
     new, count = UNIT.subn(rewrite, src)
     if count == 0:
         sys.exit("no '// source-stl:' directives found in %s — nothing to do" % SCAD)
-    open(SCAD, "w").write(new)
-    for name, fname, norm in seen:
-        print("  %-26s <- %s%s" % (name, fname, "  (normalized)" if norm else ""))
-    print("regenerated %d mesh module(s) in %s" % (count, SCAD))
+    changed = new != src
+    if changed:
+        open(SCAD, "w").write(new)
+    if verbose:
+        for name, fname, norm in seen:
+            print("  %-26s <- %s%s" % (name, fname, "  (normalized)" if norm else ""))
+        print("regenerated %d mesh module(s) in %s" % (count, SCAD) if changed
+              else "no changes — %s already up to date" % SCAD)
+    return count
+
+
+def snapshot():
+    """Modification times of every STL in stl/, keyed by path — the watch fingerprint."""
+    return {p: os.path.getmtime(p) for p in glob.glob(os.path.join(STL_DIR, "*.stl"))}
+
+
+def watch():
+    """Re-inline whenever any STL in stl/ changes. Poll-based (0.5s) so it needs no
+    third-party deps and works the same on macOS and Linux. Ctrl-C to stop."""
+    try:                                             # flush per line so piped logs stay live
+        sys.stdout.reconfigure(line_buffering=True)
+    except AttributeError:
+        pass
+    print("watching %s/ for STL changes — Ctrl-C to stop" % STL_DIR)
+    regenerate()
+    prev = snapshot()
+    try:
+        while True:
+            time.sleep(0.5)
+            cur = snapshot()
+            if cur == prev:
+                continue
+            added = sorted(set(cur) - set(prev))
+            changed = sorted(p for p in cur if p in prev and cur[p] != prev[p])
+            removed = sorted(set(prev) - set(cur))
+            for p in added:   print("+ %s" % p)
+            for p in changed: print("~ %s" % p)
+            for p in removed: print("- %s" % p)
+            try:
+                regenerate()
+            except SystemExit as e:          # missing/renamed STL mid-edit: report, keep watching
+                print("  skipped: %s" % e)
+            # Re-snapshot after the run so our own SCAD write (and any settling) is ignored.
+            prev = snapshot()
+    except KeyboardInterrupt:
+        print("\nstopped watching")
+
+
+def main():
+    if not os.path.exists(SCAD):
+        sys.exit("run me from the repo root (%s not found)" % SCAD)
+    args = sys.argv[1:]
+    if args and args[0] in ("-w", "--watch"):
+        watch()
+    elif args:
+        sys.exit("usage: inline_stls.py [--watch|-w]")
+    else:
+        regenerate()
 
 
 if __name__ == "__main__":

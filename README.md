@@ -16,11 +16,12 @@ a stiffness spectrum — pick based on how much rigidity you want (most flexible
   the outer rim with a low base foot), so the grid sides resist flexing far better than Tape for
   only a little more filament. (`net_beam` in the source.)
 - **Solid+** — The Solid base with connectable corners. It's identical to Solid — same
-  connectors, same interior corners — except the outer-perimeter corners use a special
-  profile designed to mate with neighbouring prints. Any corner on an edge that has a drawer
-  spacer (including an outer corner with a spacer in either direction) falls back to the
-  plain Solid corner. (`net_rigid` in the source; labelled *Solid+ (experimental)*.)
-- **Rigid** — Traditional-looking solid Gridfinity base. The familiar look, still trimmed for speed. (`rigid` in the source.)
+  connectors, same inner corners, same outer corners — except the *exposed* outer-perimeter
+  corners use a special profile designed to mate with neighbouring prints. Any perimeter
+  corner on an edge with a drawer spacer falls back to the plain Solid outer corner.
+  (`net_rigid` in the source; labelled *Solid+ (experimental)*.)
+- **Rigid** — Traditional-looking solid Gridfinity base, with distinct outer (perimeter) and
+  inner (interior) corners. The familiar look, still trimmed for speed. (`rigid` in the source.)
 
 ## Benchmarks
 
@@ -152,8 +153,8 @@ The mapping lives in the source itself: each inlined module is preceded by a dir
 comment naming its STL, e.g.
 
 ```
-// source-stl: AT Net Rigid Corner.stl (normalize)
-module mesh_corner_net_rigid() {
+// source-stl: AT Net Rigid Outer Corner.stl (normalize)
+module mesh_corner_net_rigid_outer() {
   polyhedron( ... );
 }
 ```
@@ -163,6 +164,11 @@ directives, reads each named STL from `stl/`, converts it, and rewrites that mod
 place — so after editing a mesh you just re-export the STL and run the script. It can be
 run from anywhere; `(normalize)` shifts a corner mesh so its outer corner lands at the
 origin.
+
+For a tight edit loop, run `./inline-stls.sh --watch`: it stays running and re-inlines
+automatically whenever any `stl/*.stl` changes, so re-exporting from your modeller is
+enough to refresh the `.scad` (it only rewrites the file when the geometry actually
+changes). Ctrl-C to stop.
 
 Per mesh, the conversion (binary STL → `polyhedron()`) is:
 
