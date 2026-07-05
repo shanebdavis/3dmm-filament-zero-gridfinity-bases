@@ -84,6 +84,11 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
    - **Columns** / **Rows** — grid size in 42 mm cells, in 0.5 steps from 1 to 20.5.
      A `.5` appends a fully-enclosed half-cell (21 mm) column and/or row, for fitting
      odd drawer sizes (e.g. `2.5` = two full cells plus a half)
+   - **Custom Shape** — carve a non-rectangular plate by removing squares from the
+     left / right end of each row (row 1 = the front row). Corners, connectors and
+     drawer spacers all adapt automatically: spacers only run along squares that
+     survived the cuts, and each row always keeps at least one square. The Console
+     warns if adjacent rows no longer overlap (which would split the plate in two).
    - **Drawer Spacers** — front / back / left / right, in mm (0 = none, 41 mm max).
      Adds a triangular spacer that projects outward from that edge so the plate sits
      flush in a drawer. Each is independent, so you can pad just the sides you need.

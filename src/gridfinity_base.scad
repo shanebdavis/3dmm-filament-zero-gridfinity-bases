@@ -32,6 +32,49 @@ ext_left  = 0; // [0:0.5:41]
 // Right will be to your right
 ext_right = 0; // [0:0.5:41]
 
+/* [Custom Shape] */
+
+// Row 1 is the FRONT row (closest to you); rows count toward the back. Each value removes that many squares from the left or right end of the row (0 = keep the whole row). A half column counts as one square; each row always keeps at least one square. Rows beyond the grid size are ignored. Drawer spacers automatically skip removed squares.
+cut_left_1 = 0; // [0:1:9]
+// Squares removed from the right end of row 1
+cut_right_1 = 0; // [0:1:9]
+// Squares removed from the left end of row 2
+cut_left_2 = 0; // [0:1:9]
+// Squares removed from the right end of row 2
+cut_right_2 = 0; // [0:1:9]
+// Squares removed from the left end of row 3
+cut_left_3 = 0; // [0:1:9]
+// Squares removed from the right end of row 3
+cut_right_3 = 0; // [0:1:9]
+// Squares removed from the left end of row 4
+cut_left_4 = 0; // [0:1:9]
+// Squares removed from the right end of row 4
+cut_right_4 = 0; // [0:1:9]
+// Squares removed from the left end of row 5
+cut_left_5 = 0; // [0:1:9]
+// Squares removed from the right end of row 5
+cut_right_5 = 0; // [0:1:9]
+// Squares removed from the left end of row 6
+cut_left_6 = 0; // [0:1:9]
+// Squares removed from the right end of row 6
+cut_right_6 = 0; // [0:1:9]
+// Squares removed from the left end of row 7
+cut_left_7 = 0; // [0:1:9]
+// Squares removed from the right end of row 7
+cut_right_7 = 0; // [0:1:9]
+// Squares removed from the left end of row 8
+cut_left_8 = 0; // [0:1:9]
+// Squares removed from the right end of row 8
+cut_right_8 = 0; // [0:1:9]
+// Squares removed from the left end of row 9
+cut_left_9 = 0; // [0:1:9]
+// Squares removed from the right end of row 9
+cut_right_9 = 0; // [0:1:9]
+// Squares removed from the left end of row 10
+cut_left_10 = 0; // [0:1:9]
+// Squares removed from the right end of row 10
+cut_right_10 = 0; // [0:1:9]
+
 /* [Advanced] */
 // Center on the plate
 centered = true;
@@ -150,23 +193,27 @@ module beam_y(len) {
 module connector_x(len) { if (len > 0) { if (beam) beam_x(len); else cube([len, conn_w, conn_h]); } }
 module connector_y(len) { if (len > 0) { if (beam) beam_y(len); else cube([conn_w, len, conn_h]); } }
 
-// A fully-enclosed rectangular cell, w x h (mm): 4 corners + 4 edge connectors.
-// Reduces to the standard 42mm square when w = h = pitch. Connector lengths
-// shrink to fit, so half cells (w or h = pitch/2) still close into a rectangle.
-// If a corner is too big for the edge (e.g. 12mm rigid corners on a 21mm half
-// edge), the connector clamps to 0 and the two corners simply overlap and union.
-module rcell(w, h, px = 0, py = 0) {
+// A fully-enclosed rectangular cell at grid position (i, j): 4 corners + 4 edge
+// connectors. Reduces to the standard 42mm square; a trailing half column/row
+// yields w or h = pitch/2 and the connector lengths shrink to fit. If a corner
+// is too big for the edge (e.g. 12mm rigid corners on a 21mm half edge), the
+// connector clamps to 0 and the two corners simply overlap and union.
+module rcell(i, j) {
+    w = col_w(i);  h = row_h(j);
     cs = corner_size;
-    // Classify each cell side that lies on the plate boundary. "exposed" = on the boundary
-    // with no drawer spacer (it butts against a neighbouring print, so it wants a Solid+
-    // corner); "blocked" = on the boundary but with a spacer (the spacer mates there, so
-    // keep a plain Solid corner). px,py are the cell's plate-origin.
-    fe = (py == 0)             && (ext_front == 0);   fb = (py == 0)             && (ext_front > 0);
-    be = (py + h == plate_h()) && (ext_back  == 0);   bb = (py + h == plate_h()) && (ext_back  > 0);
-    le = (px == 0)             && (ext_left  == 0);   lb = (px == 0)             && (ext_left  > 0);
-    re = (px + w == plate_w()) && (ext_right == 0);   rb = (px + w == plate_w()) && (ext_right > 0);
-    // Whether each side lies on the plate boundary at all (exposed or spacered).
-    f = fe || fb;   b = be || bb;   l = le || lb;   r = re || rb;
+    // Classify each cell side. A side is on the shape boundary when there is no
+    // neighbouring cell on that side — either the plate rim, or a jagged step where
+    // Custom Shape cuts removed the neighbour. "exposed" = boundary with no drawer
+    // spacer (it butts against a neighbouring print, so it wants a Solid+ corner);
+    // "blocked" = boundary with a spacer mating there (keep a plain Solid corner).
+    // Spacers only run along the outermost rows/columns, so a cut-created step is
+    // always exposed, never blocked.
+    f = !cell_at(i, j - 1);   b = !cell_at(i, j + 1);
+    l = !cell_at(i - 1, j);   r = !cell_at(i + 1, j);
+    fb = f && (j == 0)         && (ext_front > 0);   fe = f && !fb;
+    bb = b && (j == nrows - 1) && (ext_back  > 0);   be = b && !bb;
+    lb = l && (i == 0)         && (ext_left  > 0);   le = l && !lb;
+    rb = r && (i == ncols - 1) && (ext_right > 0);   re = r && !rb;
     // corner_part(plus, outer, both, swap):
     //   plus  = the on-boundary edge is exposed AND neither edge is spacered (Solid+ mate);
     //           a boundary corner with a spacer in either direction falls back to plain Solid.
@@ -185,6 +232,22 @@ module rcell(w, h, px = 0, py = 0) {
     translate([cs, h, 0]) mirror([0,1,0])  connector_x(w - 2 * cs);  // top
     translate([0,  cs, 0])                 connector_y(h - 2 * cs);  // left
     translate([w,  cs, 0]) mirror([1,0,0]) connector_y(h - 2 * cs);  // right
+    // Re-entrant plate corners (Custom Shape cuts only): this cell keeps an inner
+    // corner (both adjacent neighbours present) but the diagonal cell was cut away,
+    // so the two neighbours' perimeter walls meet this corner only along a vertical
+    // line. The 12mm Solid inner corner has a 0.7 x 0.7 relief notch right at that
+    // point (z 0.6..3.25 in the mesh, clearance for bin corners at a 4-cell crossing)
+    // which turns that line contact into a non-manifold pinch. Plug the notch so the
+    // perimeter wall turns the corner solidly — bins never reach it (their ~3.75mm
+    // corner radius keeps them well clear of the crossing point). The 5mm net corners
+    // have no notch and union cleanly, so they need no plug.
+    if (corner_size == 12) {
+        np = 0.7; nz = 3.25;   // notch footprint and height, from mesh_corner_rigid_inner
+        if (!f && !l && !cell_at(i - 1, j - 1)) translate([0,      0,      0]) cube([np, np, nz]);
+        if (!f && !r && !cell_at(i + 1, j - 1)) translate([w - np, 0,      0]) cube([np, np, nz]);
+        if (!b && !r && !cell_at(i + 1, j + 1)) translate([w - np, h - np, 0]) cube([np, np, nz]);
+        if (!b && !l && !cell_at(i - 1, j + 1)) translate([0,      h - np, 0]) cube([np, np, nz]);
+    }
 }
 
 // Split the (possibly fractional) grid size into whole cells plus a trailing half.
@@ -194,76 +257,93 @@ rows_full = floor(rows);
 half_w = (columns - cols_full) >= 0.5;
 half_h = (rows    - rows_full) >= 0.5;
 
-// Tile full cells, then optionally append a half-width column and/or a
-// half-height row (plus the half×half corner cell when both are present).
+// ------------------------------------------------------------
+// Cell model. The grid is ncols x nrows cells; a trailing half column/row counts
+// as one (narrower) cell. Custom Shape cuts remove cells from the left/right end
+// of each row, so a cell exists only if its column index lands inside the row's
+// surviving span. Everything downstream (corner selection, connectors, spacers)
+// asks cell_at() instead of assuming a full rectangle.
+ncols = cols_full + (half_w ? 1 : 0);
+nrows = rows_full + (half_h ? 1 : 0);
+
+// Per-row cut requests, row 1 (front) first. Only the first nrows entries apply.
+cuts_left  = [cut_left_1, cut_left_2, cut_left_3, cut_left_4, cut_left_5,
+              cut_left_6, cut_left_7, cut_left_8, cut_left_9, cut_left_10];
+cuts_right = [cut_right_1, cut_right_2, cut_right_3, cut_right_4, cut_right_5,
+              cut_right_6, cut_right_7, cut_right_8, cut_right_9, cut_right_10];
+
+// Effective cuts, clamped so every row keeps at least one cell (left wins a tie).
+function cutL(j) = min(cuts_left[j],  ncols - 1);
+function cutR(j) = min(cuts_right[j], ncols - 1 - cutL(j));
+
+// Does a cell exist at column i, row j? False off-grid, so neighbour probes
+// like cell_at(i, j - 1) work unguarded from edge cells.
+function cell_at(i, j) =
+    i >= 0 && i < ncols && j >= 0 && j < nrows &&
+    i >= cutL(j) && i < ncols - cutR(j);
+
+// Cell sizes: uniform pitch except the trailing half column/row.
+function col_w(i) = (half_w && i == ncols - 1) ? pitch / 2 : pitch;
+function row_h(j) = (half_h && j == nrows - 1) ? pitch / 2 : pitch;
+
+// Tile every surviving cell. Cell (i, j) sits at [i, j] * pitch (only the
+// trailing column/row can be half-size, so origins stay on the pitch grid).
 module grid() {
-    hw = pitch / 2;
-    for (i = [0 : cols_full - 1], j = [0 : rows_full - 1])
-        translate([i * pitch, j * pitch, 0]) rcell(pitch, pitch, i * pitch, j * pitch);
-
-    if (half_w)
-        for (j = [0 : rows_full - 1])
-            translate([cols_full * pitch, j * pitch, 0]) rcell(hw, pitch, cols_full * pitch, j * pitch);
-
-    if (half_h)
-        for (i = [0 : cols_full - 1])
-            translate([i * pitch, rows_full * pitch, 0]) rcell(pitch, hw, i * pitch, rows_full * pitch);
-
-    if (half_w && half_h)
-        translate([cols_full * pitch, rows_full * pitch, 0]) rcell(hw, hw, cols_full * pitch, rows_full * pitch);
+    for (i = [0 : ncols - 1], j = [0 : nrows - 1])
+        if (cell_at(i, j))
+            translate([i * pitch, j * pitch, 0]) rcell(i, j);
 }
 
 // ------------------------------------------------------------
-// Drawer spacers. Outer-boundary corner positions along X (the front/back edges) and
-// Y (the left/right edges): one entry per cell boundary, plus the half-cell boundary.
-function hpos() = let(b = [for (i = [0 : cols_full]) i * pitch])
-                  half_w ? concat(b, [cols_full * pitch + pitch / 2]) : b;
-function vpos() = let(b = [for (j = [0 : rows_full]) j * pitch])
-                  half_h ? concat(b, [rows_full * pitch + pitch / 2]) : b;
+// Drawer spacers.
 function plate_w() = cols_full * pitch + (half_w ? pitch / 2 : 0);
 function plate_h() = rows_full * pitch + (half_h ? pitch / 2 : 0);
 
-// Lay an extension prism against every outer-boundary corner on each active edge.
-// Each corner contributes one prism whose tall ridge sits on the corner's outer point.
-// Interior corners are doubled (two back-to-back corners), so their two prisms mirror
-// ridge-to-ridge into a single larger triangular spacer; the two ends are single. The
-// per-end guards drop the half whose taper would point off the end of the plate.
+// Lay extension prisms along each active edge, but only against cells that survived
+// the Custom Shape cuts: the front/back spacers run along the present cells of the
+// first/last row, and the left/right spacers only along rows whose cut on that side
+// is zero (i.e. rows that actually reach that edge of the plate).
+//
+// Each present edge cell contributes one prism at each of its two boundary corners,
+// tapering inward across the cell, plus its own stretch of tie-rail. Where two
+// present cells meet, their prisms land back-to-back and mirror ridge-to-ridge into
+// a single larger triangular spacer, and the rail stretches fuse — reproducing the
+// old whole-edge layout on a full rectangle, while gaps and run-ends get single
+// prisms and the rail stops with them.
 module spacers() {
-    xs = hpos(); ys = vpos();
     W = plate_w(); H = plate_h();
-    nx = len(xs); ny = len(ys);
 
-    if (ext_front > 0) {                                // front edge (Y = 0), outward -Y
-        for (k = [0 : nx - 1]) { cx = xs[k];
-            if (k != nx - 1) translate([cx, 0, 0])                 rotate([0,0,-90]) extension_part(ext_front);
-            if (k != 0)      translate([cx, 0, 0]) mirror([1,0,0]) rotate([0,0,-90]) extension_part(ext_front);
+    if (ext_front > 0)                                  // front edge (Y = 0), outward -Y
+        for (i = [0 : ncols - 1]) if (cell_at(i, 0)) {
+            x0 = i * pitch; x1 = x0 + col_w(i);
+            translate([x0, 0, 0])                 rotate([0,0,-90]) extension_part(ext_front);
+            translate([x1, 0, 0]) mirror([1,0,0]) rotate([0,0,-90]) extension_part(ext_front);
+            translate([x0, -ext_front, 0]) cube([col_w(i), rail_w, rail_h]);   // tie-rail at the tips
         }
-        translate([0, -ext_front, 0]) cube([W, rail_w, rail_h]);          // tie-rail at the tips
-    }
 
-    if (ext_back > 0) {                                 // back edge (Y = H), outward +Y
-        for (k = [0 : nx - 1]) { cx = xs[k];
-            if (k != nx - 1) translate([cx, H, 0]) mirror([1,0,0]) rotate([0,0, 90]) extension_part(ext_back);
-            if (k != 0)      translate([cx, H, 0])                 rotate([0,0, 90]) extension_part(ext_back);
+    if (ext_back > 0)                                   // back edge (Y = H), outward +Y
+        for (i = [0 : ncols - 1]) if (cell_at(i, nrows - 1)) {
+            x0 = i * pitch; x1 = x0 + col_w(i);
+            translate([x0, H, 0]) mirror([1,0,0]) rotate([0,0, 90]) extension_part(ext_back);
+            translate([x1, H, 0])                 rotate([0,0, 90]) extension_part(ext_back);
+            translate([x0, H + ext_back - rail_w, 0]) cube([col_w(i), rail_w, rail_h]);
         }
-        translate([0, H + ext_back - rail_w, 0]) cube([W, rail_w, rail_h]);
-    }
 
-    if (ext_left > 0) {                                 // left edge (X = 0), outward -X
-        for (k = [0 : ny - 1]) { cy = ys[k];
-            if (k != ny - 1) translate([0, cy, 0]) mirror([0,1,0]) rotate([0,0,180]) extension_part(ext_left);
-            if (k != 0)      translate([0, cy, 0])                 rotate([0,0,180]) extension_part(ext_left);
+    if (ext_left > 0)                                   // left edge (X = 0), outward -X
+        for (j = [0 : nrows - 1]) if (cell_at(0, j)) {
+            y0 = j * pitch; y1 = y0 + row_h(j);
+            translate([0, y0, 0]) mirror([0,1,0]) rotate([0,0,180]) extension_part(ext_left);
+            translate([0, y1, 0])                 rotate([0,0,180]) extension_part(ext_left);
+            translate([-ext_left, y0, 0]) cube([rail_w, row_h(j), rail_h]);
         }
-        translate([-ext_left, 0, 0]) cube([rail_w, H, rail_h]);
-    }
 
-    if (ext_right > 0) {                                // right edge (X = W), outward +X
-        for (k = [0 : ny - 1]) { cy = ys[k];
-            if (k != ny - 1) translate([W, cy, 0])                 extension_part(ext_right);
-            if (k != 0)      translate([W, cy, 0]) mirror([0,1,0]) extension_part(ext_right);
+    if (ext_right > 0)                                  // right edge (X = W), outward +X
+        for (j = [0 : nrows - 1]) if (cell_at(ncols - 1, j)) {
+            y0 = j * pitch; y1 = y0 + row_h(j);
+            translate([W, y0, 0])                 extension_part(ext_right);
+            translate([W, y1, 0]) mirror([0,1,0]) extension_part(ext_right);
+            translate([W + ext_right - rail_w, y0, 0]) cube([rail_w, row_h(j), rail_h]);
         }
-        translate([W + ext_right - rail_w, 0, 0]) cube([rail_w, H, rail_h]);
-    }
 }
 
 // Total outer footprint, including any drawer spacers. Printed to the Console
@@ -272,6 +352,21 @@ total_w = plate_w() + ext_left + ext_right;
 total_d = plate_h() + ext_front + ext_back;
 echo(str("==> Width: ", total_w, " mm"));
 echo(str("==> Depth: ", total_d, " mm"));
+
+// Custom Shape sanity notes (View -> Console).
+for (j = [0 : nrows - 1])
+    if (cuts_left[j] != cutL(j) || cuts_right[j] != cutR(j))
+        echo(str("NOTE: Row ", j + 1, " cuts clamped to keep at least one square."));
+if (nrows < 10)
+    for (j = [nrows : 9])
+        if (cuts_left[j] > 0 || cuts_right[j] > 0)
+            echo(str("NOTE: Row ", j + 1, " cuts ignored - the grid only has ", nrows, " rows."));
+// Adjacent rows whose surviving spans do not overlap leave the plate in two pieces.
+if (nrows > 1)
+    for (j = [0 : nrows - 2])
+        if (cutL(j) >= ncols - cutR(j + 1) || cutL(j + 1) >= ncols - cutR(j))
+            echo(str("WARNING: Rows ", j + 1, " and ", j + 2,
+                     " do not overlap - the plate will be disconnected."));
 
 // The whole assembly. Optionally shifted so its X/Y footprint (plate plus any
 // asymmetric spacers) is centered on the origin; Z is left sitting on the bed.
