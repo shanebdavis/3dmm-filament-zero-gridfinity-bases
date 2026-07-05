@@ -119,9 +119,14 @@ conn_h = (model == "rigid" || model == "net_rigid") ? 4.0 : 0.5;
 // its inner (mating) edge along local +Y. rcell places every corner so local +X points at
 // that corner's "canonical" boundary side; when the actual boundary edge is the *other*
 // one, `swap` mirrors the mesh across its diagonal (swap X/Y) to put the perimeter wall on
-// the right edge. `plus`/`outer`/`both`/`swap` are supplied by rcell; the flexible-net
-// models ignore them all.
-module corner_part(plus = true, outer = true, both = true, swap = false) {
+// the right edge. `open` marks a corner whose two adjacent squares are present but whose
+// diagonal square was removed by a Custom Shape cut (a re-entrant plate corner). Solid+
+// must NOT use the fully-interior corner there: its edge-connector clip only fits an
+// intersection where every square-corner presents the connectable outer profile, so any
+// missing square at the intersection forces the outer piece on all corners around it.
+// Plain Solid has no clip and keeps the interior corner. `plus`/`outer`/`both`/`swap`/
+// `open` are supplied by rcell; the flexible-net models ignore them all.
+module corner_part(plus = true, outer = true, both = true, swap = false, open = false) {
     if      (model == "net_light")                        mesh_corner_net_light();
     else if (model == "net_heavy" || model == "net_beam") mesh_corner_net_heavy();
     else if (model == "net_rigid") {
@@ -129,6 +134,7 @@ module corner_part(plus = true, outer = true, both = true, swap = false) {
         else if (plus)          diag(swap) mesh_corner_net_rigid_innerouter();
         else if (outer && both) mesh_corner_rigid_outer();
         else if (outer)         diag(swap) mesh_corner_rigid_innerouter();
+        else if (open)          mesh_corner_net_rigid_outer();
         else                    mesh_corner_rigid_inner();
     }
     else {  // rigid / Solid
@@ -214,7 +220,11 @@ module rcell(i, j) {
     bb = b && (j == nrows - 1) && (ext_back  > 0);   be = b && !bb;
     lb = l && (i == 0)         && (ext_left  > 0);   le = l && !lb;
     rb = r && (i == ncols - 1) && (ext_right > 0);   re = r && !rb;
-    // corner_part(plus, outer, both, swap):
+    // Diagonal neighbours: a corner with both adjacent squares present but the diagonal
+    // square cut away is a re-entrant plate corner ("open" intersection) — see corner_part.
+    dfl = !cell_at(i - 1, j - 1);   dfr = !cell_at(i + 1, j - 1);
+    dbl = !cell_at(i - 1, j + 1);   dbr = !cell_at(i + 1, j + 1);
+    // corner_part(plus, outer, both, swap, open):
     //   plus  = the on-boundary edge is exposed AND neither edge is spacered (Solid+ mate);
     //           a boundary corner with a spacer in either direction falls back to plain Solid.
     //   outer = at least one edge on the boundary; both = both edges on it (a true plate corner).
@@ -222,31 +232,32 @@ module rcell(i, j) {
     //           +X) side, so the asymmetric InnerOuter mesh must be mirrored across its diagonal.
     //           Canonical boundary side per corner: front-left->front, front-right->right,
     //           back-right->back, back-left->left.
-    translate([0, 0, 0])                     corner_part((fe || le) && !(fb || lb), f || l, f && l, l && !f);
-    translate([w, 0, 0]) rotate([0, 0,  90]) corner_part((fe || re) && !(fb || rb), f || r, f && r, f && !r);
-    translate([w, h, 0]) rotate([0, 0, 180]) corner_part((be || re) && !(bb || rb), b || r, b && r, r && !b);
-    translate([0, h, 0]) rotate([0, 0, 270]) corner_part((be || le) && !(bb || lb), b || l, b && l, b && !l);
+    //   open  = both adjacent squares present but the diagonal square is missing.
+    translate([0, 0, 0])                     corner_part((fe || le) && !(fb || lb), f || l, f && l, l && !f, !f && !l && dfl);
+    translate([w, 0, 0]) rotate([0, 0,  90]) corner_part((fe || re) && !(fb || rb), f || r, f && r, f && !r, !f && !r && dfr);
+    translate([w, h, 0]) rotate([0, 0, 180]) corner_part((be || re) && !(bb || rb), b || r, b && r, r && !b, !b && !r && dbr);
+    translate([0, h, 0]) rotate([0, 0, 270]) corner_part((be || le) && !(bb || lb), b || l, b && l, b && !l, !b && !l && dbl);
     // edges, flush to the outer rim and extending inward. Mirror the top and right so
     // the (asymmetric) beam web lands on the outer rim, matching the bottom and left.
     translate([cs, 0, 0])                  connector_x(w - 2 * cs);  // bottom
     translate([cs, h, 0]) mirror([0,1,0])  connector_x(w - 2 * cs);  // top
     translate([0,  cs, 0])                 connector_y(h - 2 * cs);  // left
     translate([w,  cs, 0]) mirror([1,0,0]) connector_y(h - 2 * cs);  // right
-    // Re-entrant plate corners (Custom Shape cuts only): this cell keeps an inner
-    // corner (both adjacent neighbours present) but the diagonal cell was cut away,
-    // so the two neighbours' perimeter walls meet this corner only along a vertical
-    // line. The 12mm Solid inner corner has a 0.7 x 0.7 relief notch right at that
-    // point (z 0.6..3.25 in the mesh, clearance for bin corners at a 4-cell crossing)
-    // which turns that line contact into a non-manifold pinch. Plug the notch so the
+    // Re-entrant plate corners (Custom Shape cuts only), plain Solid model: this cell
+    // keeps its fully-interior corner at an open intersection, but that mesh has a
+    // 0.7 x 0.7 relief notch right at the crossing point (z 0.6..3.25, clearance for
+    // bin corners at a 4-cell crossing), so the two neighbours' perimeter walls meet
+    // it only along a vertical line — a non-manifold pinch. Plug the notch so the
     // perimeter wall turns the corner solidly — bins never reach it (their ~3.75mm
-    // corner radius keeps them well clear of the crossing point). The 5mm net corners
-    // have no notch and union cleanly, so they need no plug.
-    if (corner_size == 12) {
+    // corner radius keeps them well clear of the crossing point). Solid+ swaps in its
+    // outer corner at open intersections and the 5mm net corners have no notch, so
+    // only plain Solid needs the plug.
+    if (model == "rigid") {
         np = 0.7; nz = 3.25;   // notch footprint and height, from mesh_corner_rigid_inner
-        if (!f && !l && !cell_at(i - 1, j - 1)) translate([0,      0,      0]) cube([np, np, nz]);
-        if (!f && !r && !cell_at(i + 1, j - 1)) translate([w - np, 0,      0]) cube([np, np, nz]);
-        if (!b && !r && !cell_at(i + 1, j + 1)) translate([w - np, h - np, 0]) cube([np, np, nz]);
-        if (!b && !l && !cell_at(i - 1, j + 1)) translate([0,      h - np, 0]) cube([np, np, nz]);
+        if (!f && !l && dfl) translate([0,      0,      0]) cube([np, np, nz]);
+        if (!f && !r && dfr) translate([w - np, 0,      0]) cube([np, np, nz]);
+        if (!b && !r && dbr) translate([w - np, h - np, 0]) cube([np, np, nz]);
+        if (!b && !l && dbl) translate([0,      h - np, 0]) cube([np, np, nz]);
     }
 }
 
