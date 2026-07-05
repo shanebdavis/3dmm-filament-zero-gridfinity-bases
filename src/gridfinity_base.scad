@@ -12,13 +12,13 @@
 
 /* [Model] */
 // Which base style to build
-model = "net_light"; // [net_light:Net, net_heavy:Tape, rigid:Solid, net_beam:Beam (experimental), net_rigid:Solid+ (experimental)]
+model = "net_light"; // [net_light:Net+, net_heavy:Tape+, net_rigid:Beam+, rigid:Beam]
 
 /* [Grid] */
 // Squares wide
-columns = 2; // [1:0.5:20.5]
+columns = 2; // [1:0.5:10]
 // Squares deep
-rows = 2;    // [1:0.5:20.5]
+rows = 2;    // [1:0.5:10]
 
 /* [Drawer Spacers] */
 // Outward spacer on each side (mm) so the plate sits flush in a drawer. 0 = none.
@@ -60,25 +60,46 @@ conn_h = (model == "rigid" || model == "net_rigid") ? 4.0 : 0.5;
 
 // ------------------------------------------------------------
 // One corner, already normalized (outer corner at the origin, in the +X +Y quadrant
-// with the profile facing the cell centre). Solid (rigid) and Solid+ (net_rigid) both
-// distinguish two corner roles by position: an `outer` corner sits on the plate
-// perimeter, an inner corner sits fully in the interior where cells meet. Solid+ adds a
-// third role: where `plus` is true — an exposed perimeter corner with no drawer spacer,
-// i.e. one that mates with a neighbouring print — it swaps in the special Solid+ corner;
-// a spacered perimeter corner falls back to the plain Solid outer corner. `plus`/`outer`
-// are supplied by rcell; the flexible-net models ignore both.
-module corner_part(plus = true, outer = true) {
+// with the profile facing the cell centre). Solid (rigid) and Solid+ (net_rigid)
+// distinguish corner roles by how many of the corner's two edges lie on the plate
+// boundary:
+//   both edges on boundary  -> `outer` corner (a true plate corner)
+//   one edge on boundary    -> `innerouter` corner (sits mid-edge: one side is the
+//                              perimeter wall, the other mates with the neighbouring cell)
+//   neither edge on boundary -> `inner` corner (fully interior, where four cells meet)
+// `outer` is true whenever at least one edge is on the boundary; `both` narrows that to a
+// true plate corner. Solid+ adds the `plus` role: where the on-boundary edge is *exposed*
+// (no drawer spacer) it mates with a neighbouring print, so it swaps in the special Solid+
+// outer/innerouter mesh; a spacered boundary edge falls back to the plain Solid corner.
+//
+// The InnerOuter mesh is asymmetric — its outer (perimeter) edge runs along local +X and
+// its inner (mating) edge along local +Y. rcell places every corner so local +X points at
+// that corner's "canonical" boundary side; when the actual boundary edge is the *other*
+// one, `swap` mirrors the mesh across its diagonal (swap X/Y) to put the perimeter wall on
+// the right edge. `plus`/`outer`/`both`/`swap` are supplied by rcell; the flexible-net
+// models ignore them all.
+module corner_part(plus = true, outer = true, both = true, swap = false) {
     if      (model == "net_light")                        mesh_corner_net_light();
     else if (model == "net_heavy" || model == "net_beam") mesh_corner_net_heavy();
     else if (model == "net_rigid") {
-        if      (plus)  mesh_corner_net_rigid_outer();
-        else if (outer) mesh_corner_rigid_outer();
-        else            mesh_corner_rigid_inner();
+        if      (plus && both)  mesh_corner_net_rigid_outer();
+        else if (plus)          diag(swap) mesh_corner_net_rigid_innerouter();
+        else if (outer && both) mesh_corner_rigid_outer();
+        else if (outer)         diag(swap) mesh_corner_rigid_innerouter();
+        else                    mesh_corner_rigid_inner();
     }
     else {  // rigid / Solid
-        if (outer) mesh_corner_rigid_outer();
-        else       mesh_corner_rigid_inner();
+        if      (outer && both) mesh_corner_rigid_outer();
+        else if (outer)         diag(swap) mesh_corner_rigid_innerouter();
+        else                    mesh_corner_rigid_inner();
     }
+}
+
+// Mirror children across the corner's diagonal (swap X/Y) when `s` is set — used to flip an
+// asymmetric InnerOuter corner so its perimeter wall lands on the correct edge.
+module diag(s) {
+    if (s) multmatrix([[0,1,0,0],[1,0,0,0],[0,0,1,0],[0,0,0,1]]) children();
+    else   children();
 }
 
 // ------------------------------------------------------------
@@ -144,14 +165,20 @@ module rcell(w, h, px = 0, py = 0) {
     be = (py + h == plate_h()) && (ext_back  == 0);   bb = (py + h == plate_h()) && (ext_back  > 0);
     le = (px == 0)             && (ext_left  == 0);   lb = (px == 0)             && (ext_left  > 0);
     re = (px + w == plate_w()) && (ext_right == 0);   rb = (px + w == plate_w()) && (ext_right > 0);
-    // A corner is `outer` when either of its two edges lies on the plate boundary (exposed
-    // or spacered); otherwise it's an interior corner. It's Solid+ (`plus`) only when one
-    // of those edges is exposed AND neither is a spacered boundary edge — so an outer plate
-    // corner with a spacer in either direction falls back to the plain Solid outer corner.
-    translate([0, 0, 0])                     corner_part((fe || le) && !(fb || lb), fe || fb || le || lb);
-    translate([w, 0, 0]) rotate([0, 0,  90]) corner_part((fe || re) && !(fb || rb), fe || fb || re || rb);
-    translate([w, h, 0]) rotate([0, 0, 180]) corner_part((be || re) && !(bb || rb), be || bb || re || rb);
-    translate([0, h, 0]) rotate([0, 0, 270]) corner_part((be || le) && !(bb || lb), be || bb || le || lb);
+    // Whether each side lies on the plate boundary at all (exposed or spacered).
+    f = fe || fb;   b = be || bb;   l = le || lb;   r = re || rb;
+    // corner_part(plus, outer, both, swap):
+    //   plus  = the on-boundary edge is exposed AND neither edge is spacered (Solid+ mate);
+    //           a boundary corner with a spacer in either direction falls back to plain Solid.
+    //   outer = at least one edge on the boundary; both = both edges on it (a true plate corner).
+    //   swap  = the lone boundary edge is the *other* one than this corner's canonical (local
+    //           +X) side, so the asymmetric InnerOuter mesh must be mirrored across its diagonal.
+    //           Canonical boundary side per corner: front-left->front, front-right->right,
+    //           back-right->back, back-left->left.
+    translate([0, 0, 0])                     corner_part((fe || le) && !(fb || lb), f || l, f && l, l && !f);
+    translate([w, 0, 0]) rotate([0, 0,  90]) corner_part((fe || re) && !(fb || rb), f || r, f && r, f && !r);
+    translate([w, h, 0]) rotate([0, 0, 180]) corner_part((be || re) && !(bb || rb), b || r, b && r, r && !b);
+    translate([0, h, 0]) rotate([0, 0, 270]) corner_part((be || le) && !(bb || lb), b || l, b && l, b && !l);
     // edges, flush to the outer rim and extending inward. Mirror the top and right so
     // the (asymmetric) beam web lands on the outer rim, matching the bottom and left.
     translate([cs, 0, 0])                  connector_x(w - 2 * cs);  // bottom
@@ -290,11 +317,25 @@ module mesh_corner_net_rigid_outer() {
     faces=[[0,2,1], [2,0,3], [3,4,2], [4,3,5], [6,4,7], [4,6,2], [6,1,2], [1,6,8], [4,9,7], [10,9,11], [9,10,7], [9,4,5], [12,5,13], [0,13,3], [5,12,9], [13,5,3], [13,0,14], [15,14,8], [1,14,0], [14,1,8], [14,15,16], [13,17,12], [17,13,18], [19,11,17], [12,11,9], [11,12,17], [11,19,20], [21,18,16], [14,18,13], [18,14,16], [18,21,22], [17,22,19], [22,17,18], [8,7,15], [23,25,24], [15,7,10], [25,23,15], [25,15,10], [7,8,6], [26,21,23], [15,21,16], [21,15,23], [21,26,27], [26,24,28], [24,26,23], [19,29,20], [29,22,30], [27,22,21], [22,27,30], [29,19,22], [10,20,25], [31,20,29], [20,31,25], [20,10,11], [28,27,26], [27,28,30], [30,31,29], [31,30,28], [24,31,28], [31,24,25]], convexity=6);
 }
 
+// source-stl: AT Rigid InnerOuter Corner.stl (normalize)
+module mesh_corner_rigid_innerouter() {
+  polyhedron(
+    points=[[0.9,12,0], [0,12,0], [0,12,4], [0.9,12,4], [0,0,4], [0,0,0], [12,0,0], [12,0,4], [12,0.9,0], [12,0.9,4], [0.9,0.9,0], [2.15,4,1.25], [2.15,2.15,1.25], [4,2.15,1.25], [4,2.15,2.75], [2.15,2.15,2.75], [0.9,0.9,4], [2.15,4,2.75]],
+    faces=[[0,2,1], [2,0,3], [4,1,2], [1,4,5], [5,7,6], [7,5,4], [8,7,9], [7,8,6], [6,10,5], [1,10,0], [10,1,5], [10,6,8], [10,11,0], [11,10,12], [10,13,12], [13,10,8], [14,12,13], [12,14,15], [8,14,13], [14,8,9], [2,16,4], [7,16,9], [16,7,4], [16,2,3], [16,17,15], [17,16,3], [16,14,9], [14,16,15], [11,15,17], [15,11,12], [3,11,17], [11,3,0]], convexity=6);
+}
+
+// source-stl: AT Net Rigid InnerOuter Corner.stl (normalize)
+module mesh_corner_net_rigid_innerouter() {
+  polyhedron(
+    points=[[4,0,4], [12,0,4], [12,0.9,4], [4,0.9,4], [5,2.15,2.75], [4,2.15,2.75], [12,0.9,0], [5,2.15,0], [12,0,0], [4,2.15,0.5], [2.15,2.15,0], [2.15,2.15,0.5], [4,0.5,0.5], [4,0.5,3], [4,0,3], [0,0,0], [0,0,3], [0.5,0.5,0.5], [0.5,0.5,3], [0.5,4,0.5], [2.15,4,0.5], [0,4,3], [0.5,4,3], [0,12,0], [0.9,12,0], [2.15,5,0], [0,12,4], [0,4,4], [0.9,12,4], [2.15,4,2.75], [0.9,4,4], [2.15,5,2.75]],
+    faces=[[0,2,1], [2,0,3], [3,4,2], [4,3,5], [6,4,7], [4,6,2], [6,1,2], [1,6,8], [4,9,7], [10,9,11], [9,10,7], [9,4,5], [12,5,13], [0,13,3], [5,12,9], [13,5,3], [13,0,14], [15,14,8], [1,14,0], [14,1,8], [14,15,16], [13,17,12], [17,13,18], [19,11,17], [12,11,9], [11,12,17], [11,19,20], [21,18,16], [14,18,13], [18,14,16], [18,21,22], [17,22,19], [22,17,18], [8,7,15], [23,25,24], [15,7,10], [25,23,15], [25,15,10], [7,8,6], [26,21,23], [15,21,16], [21,15,23], [21,26,27], [26,24,28], [24,26,23], [19,29,20], [29,22,30], [27,22,21], [22,27,30], [29,19,22], [10,20,25], [31,20,29], [20,31,25], [20,10,11], [28,27,26], [27,28,30], [30,31,29], [31,30,28], [24,31,28], [31,24,25]], convexity=6);
+}
+
 // source-stl: AT Rigid Inner Corner.stl (normalize)
 module mesh_corner_rigid_inner() {
   polyhedron(
-    points=[[0.9,0.9,4], [2.15,2.15,2.75], [2.15,4,2.75], [0.9,12,4], [12,0.9,4], [4,2.15,2.75], [4,2.15,1.25], [2.15,2.15,1.25], [2.15,4,1.25], [0.9,0.9,0], [0.9,12,0], [12,0.9,0], [12,0,0], [0,0,0], [0,12,0], [0,12,4], [0,0,4], [12,0,4], [0.4,12,3.25], [0.4,12,0.5], [0,12,0.5], [0,12,3.25], [0.4,11.6,3.25], [0,11.6,3.25], [0,11.6,0.5], [0.4,11.6,0.5], [0,0.9,0.5], [0,0,0.5], [0,0.9,3.25], [0,0,3.25], [0.9,0.9,3.25], [0.9,0,3.25], [0.9,0.9,0.5], [0.9,0,0.5], [11.6,0,0.5], [11.6,0,3.25], [12,0,0.5], [12,0,3.25], [12,0.4,0.5], [12,0.4,3.25], [11.6,0.4,3.25], [11.6,0.4,0.5]],
-    faces=[[0,2,1], [2,0,3], [0,5,4], [5,0,1], [5,7,6], [7,5,1], [8,1,2], [1,8,7], [9,8,10], [8,9,7], [9,6,7], [6,9,11], [11,5,6], [5,11,4], [3,8,2], [8,3,10], [12,9,13], [14,9,10], [9,14,13], [9,12,11], [15,0,16], [17,0,4], [0,17,16], [0,15,3], [15,18,3], [10,18,19], [18,10,3], [14,19,20], [19,14,10], [18,15,21], [18,23,22], [23,18,21], [19,24,20], [24,19,25], [22,24,25], [24,22,23], [22,19,18], [19,22,25], [23,26,24], [13,26,27], [14,24,13], [26,13,24], [26,23,28], [15,23,21], [16,28,15], [23,15,28], [24,14,20], [28,16,29], [30,29,31], [29,30,28], [32,27,26], [27,32,33], [30,33,32], [33,30,31], [28,32,26], [32,28,30], [13,33,34], [31,34,33], [17,35,31], [34,31,35], [33,13,27], [12,34,36], [34,12,13], [16,31,29], [31,16,17], [35,17,37], [12,38,11], [11,39,4], [39,11,38], [17,39,37], [39,17,4], [38,12,36], [39,35,37], [35,39,40], [34,38,36], [38,34,41], [40,38,41], [38,40,39], [35,41,34], [41,35,40]], convexity=6);
+    points=[[0.9,0.9,4], [2.15,2.15,2.75], [2.15,4,2.75], [0.9,12,4], [12,0.9,4], [4,2.15,2.75], [4,2.15,1.25], [2.15,2.15,1.25], [2.15,4,1.25], [0.9,0.9,0], [0.9,12,0], [12,0.9,0], [12,0,0], [0,0,0], [0,12,0], [0,12,4], [0,0,4], [12,0,4], [0.4,12,3.25], [0.4,12,0.6], [0,12,0.6], [0,12,3.25], [0.4,11.9,3.25], [0,11.9,3.25], [0,11.9,0.6], [0.4,11.9,0.6], [0,0.7,3.25], [0,0.7,0.6], [0,0,0.6], [0,0,3.25], [0.7,0.7,3.25], [0.7,0,3.25], [0.7,0.7,0.6], [0.7,0,0.6], [11.9,0,0.6], [12,0,0.6], [11.9,0,3.25], [12,0,3.25], [12,0.4,0.6], [12,0.4,3.25], [11.9,0.4,3.25], [11.9,0.4,0.6]],
+    faces=[[0,2,1], [2,0,3], [0,5,4], [5,0,1], [5,7,6], [7,5,1], [8,1,2], [1,8,7], [9,8,10], [8,9,7], [9,6,7], [6,9,11], [11,5,6], [5,11,4], [3,8,2], [8,3,10], [12,9,13], [14,9,10], [9,14,13], [9,12,11], [15,0,16], [17,0,4], [0,17,16], [0,15,3], [15,18,3], [10,18,19], [18,10,3], [14,19,20], [19,14,10], [18,15,21], [22,21,23], [21,22,18], [20,25,24], [25,20,19], [22,24,25], [24,22,23], [22,19,18], [19,22,25], [16,26,23], [27,23,26], [23,27,24], [13,27,28], [14,24,13], [27,13,24], [26,16,29], [15,23,21], [23,15,16], [24,14,20], [30,29,31], [29,30,26], [32,28,27], [28,32,33], [31,32,30], [32,31,33], [26,32,27], [32,26,30], [31,34,33], [12,34,35], [13,33,12], [34,12,33], [34,31,36], [16,31,29], [17,36,16], [31,16,36], [33,13,28], [36,17,37], [12,38,11], [11,39,4], [39,11,38], [17,39,37], [39,17,4], [38,12,35], [39,36,37], [36,39,40], [34,38,35], [38,34,41], [40,38,41], [38,40,39], [36,41,34], [41,36,40]], convexity=6);
 }
 
 // source-stl: AT Rigid Outer Corner.stl (normalize)
