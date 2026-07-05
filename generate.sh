@@ -26,11 +26,10 @@ JOBS="$( (command -v nproc >/dev/null 2>&1 && nproc) || sysctl -n hw.ncpu 2>/dev
 
 # Model id -> friendly label used in the output filename.
 MODELS=(
-    "net_light:Net"
-    "net_heavy:Tape"
-    "rigid:Solid"
-    "net_beam:Beam"
-    "net_rigid:Solid+"
+    "net_light:Net+"
+    "net_heavy:Tape+"
+    "rigid:Beam"
+    "net_rigid:Beam+"
 )
 
 # Standard sizes as "columns x rows".

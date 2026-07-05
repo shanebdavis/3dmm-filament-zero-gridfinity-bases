@@ -1,27 +1,35 @@
-# Ultimate Gridfinity Base
+# 3DMM Filament Zero — Gridfinity Bases
 
-The lightest, fastest-printing Gridfinity baseplates — now fully customizable in OpenSCAD.
+**What is the absolute minimum filament — and print time — that still makes a usable
+Gridfinity base?** That's the whole point of this project. At this point the answer is,
+in truth, *filament approximately zero*: there's no way to remove any more material
+without making the base non-functional. Hence the name.
 
 Part of the **3D Modular Madness** collection. Released on MakerWorld:
 https://makerworld.com/en/models/1384108-gridfinity-base-fastest-lightest-customizable
 
 ## The variants
 
-All are dramatically lighter and faster to print than anything else on MakerWorld. They form
-a stiffness spectrum — pick based on how much rigidity you want (most flexible first):
+Three levels of structure, depending on your needs — plus connectable versions of each:
 
-- **Net** — Maximum flexibility and by far the lightest, fastest print. (`net_light` in the source.)
-- **Tape** — Semi-flexible / semi-rigid middle ground. (`net_heavy` in the source.)
-- **Net Beam** — The Tape corner paired with a taller beam connector (a thin web rising 4 mm at
-  the outer rim with a low base foot), so the grid sides resist flexing far better than Tape for
-  only a little more filament. (`net_beam` in the source.)
-- **Solid+** — The Solid base with connectable corners. It's identical to Solid — same
-  connectors, same inner corners, same outer corners — except the *exposed* outer-perimeter
-  corners use a special profile designed to mate with neighbouring prints. Any perimeter
-  corner on an edge with a drawer spacer falls back to the plain Solid outer corner.
-  (`net_rigid` in the source; labelled *Solid+ (experimental)*.)
-- **Rigid** — Traditional-looking solid Gridfinity base, with distinct outer (perimeter) and
-  inner (interior) corners. The familiar look, still trimmed for speed. (`rigid` in the source.)
+- **Net+** — Doubly flexible, but strong in *tension* — which is mostly what a Gridfinity
+  base needs anyway. By far the lightest and fastest print. (`net_light` in the source.)
+- **Tape+** — Adds horizontal sliding rigidity while staying flexible. Probably the sweet
+  spot if you don't care about looks. (`net_heavy` in the source.)
+- **Beam** — If you want it to look nice *and* want the strongest option, go for the beam:
+  a traditional-looking solid Gridfinity base, still trimmed to the bone for speed.
+  (`rigid` in the source.)
+- **Beam+** — Beam, made connectable (see below). Identical to Beam except the *exposed*
+  outer-perimeter corners use a special profile designed to mate with neighbouring prints.
+  Any perimeter corner on an edge with a drawer spacer falls back to the plain Beam outer
+  corner. (`net_rigid` in the source.)
+
+### Connecting plates into one big grid
+
+A natural fallout of how the Net and Tape versions are built: their corners made it
+natural to design a **connector** that joins separately-printed plates, so if possible you
+can interconnect all your Gridfinity into one large piece. Once the connectors existed,
+**Beam+** followed — so the nicest-looking, strongest option can use the connectors too.
 
 ## Benchmarks
 
@@ -30,10 +38,10 @@ Bambu Studio slicer estimates on an **A1 mini**, normalized per 42 mm tile (most
 
 | Model | By | g / tile | s / tile |
 |-------|-----|---------:|---------:|
-| ★ **3DMM Net** | this project | **0.167** | **23.5** |
+| ★ **3DMM Net+** | this project | **0.167** | **23.5** |
 | Ultralight+ Gridfinity Bases | DBT85 | 0.267 | 52.3 |
-| ★ **3DMM Tape** | this project | 0.326 | 49.9 |
-| ★ **3DMM Rigid (Solid)** | this project | 0.500 | 74.4 |
+| ★ **3DMM Tape+** | this project | 0.326 | 49.9 |
+| ★ **3DMM Beam** | this project | 0.500 | 74.4 |
 | Lightest Gridfinity Base Ever | Sparky | 0.780 | 96.3 |
 | 3DMM Original Ultimate Turbo | this project (old) | 0.828 | 51.9 |
 | Gridfinity Lightweight Stackable | DJR Engineering | 1.081 | 123.8 |
@@ -42,13 +50,13 @@ Bambu Studio slicer estimates on an **A1 mini**, normalized per 42 mm tile (most
 
 Highlights:
 
-- **Net is the lightest and fastest base in the field** — 0.167 g/tile, ~37% less filament
+- **Net+ is the lightest and fastest base in the field** — 0.167 g/tile, ~37% less filament
   than the next-lightest (Ultralight+) and ~2.2× faster per tile.
-- **Rigid — a traditional, solid-looking base — beats "Lightest Gridfinity Base Ever"** by
+- **Beam — a traditional, solid-looking base — beats "Lightest Gridfinity Base Ever"** by
   ~36% on filament and ~23% on time, while still looking like a normal Gridfinity base.
-- **Tape** adds real semi-rigid cross-bracing for only a little more filament than corner-only
+- **Tape+** adds real semi-rigid cross-bracing for only a little more filament than corner-only
   designs, at comparable print speed (49.9 s/tile vs Ultralight+'s 52.3 s/tile).
-- Versus a standard Simple Base, **Net uses ~1/8th the filament and prints ~10× faster** per tile.
+- Versus a standard Simple Base, **Net+ uses ~1/8th the filament and prints ~10× faster** per tile.
 
 ## Repo layout
 
@@ -80,16 +88,21 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
 1. Open `src/gridfinity_base.scad` in OpenSCAD.
 2. Open the Customizer: **Window → Customizer**.
 3. Set:
-   - **Model** — Net, Tape, Net Beam, Net Rigid, or Rigid
+   - **Model** — Net+, Tape+, Beam+, or Beam
    - **Columns** / **Rows** — grid size in 42 mm cells, in 0.5 steps from 1 to 20.5.
      A `.5` appends a fully-enclosed half-cell (21 mm) column and/or row, for fitting
      odd drawer sizes (e.g. `2.5` = two full cells plus a half)
+   - **Custom Shape** — carve a non-rectangular plate by removing squares from the
+     left / right end of each row (row 1 = the front row). Corners, connectors and
+     drawer spacers all adapt automatically: spacers only run along squares that
+     survived the cuts, and each row always keeps at least one square. The Console
+     warns if adjacent rows no longer overlap (which would split the plate in two).
    - **Drawer Spacers** — front / back / left / right, in mm (0 = none, 41 mm max).
      Adds a triangular spacer that projects outward from that edge so the plate sits
      flush in a drawer. Each is independent, so you can pad just the sides you need.
      A tie-rail runs along the outer edge of each spaced side, locking the spacers
      together for rigidity. Past 41 mm, add another Gridfinity cell instead.
-   - **Advanced** — pitch (42 mm = standard Gridfinity) and curve smoothness
+   - **Advanced** — pitch (42 mm = standard Gridfinity), centering, and preview colour
 4. `F5` to preview, `F6` to render, then **File → Export → Export as STL**.
 
 The **Console** (**View → Console**) prints the total outer footprint in mm
@@ -115,11 +128,11 @@ raised the bar — this project is my attempt to push it further. Go give them a
   by DBT85 — Corner-only alignment bases (the grid sides are skipped entirely, since only
   the corners are needed to align bins), with optional pins to connect plates. Roughly
   6.5 g and ~20 min for a 2-wall 5×5 on a P1S. The closest reference point for the
-  **Net** and **Tape** variants.
+  **Net+** and **Tape+** variants.
 - **[Lightest Gridfinity Base Ever – Customizable](https://makerworld.com/en/models/1685835-lightest-gridfinity-base-ever-customizable)**
   by Sparky — Parametric, skeletonized walls-only base with the bottom lip and inter-grid
   overhangs removed; a 4×4 in ~14 min on a 0.8 mm nozzle (1 wall). The reference point for
-  the **Rigid** variant.
+  the **Beam** variant.
 - **[Gridfinity Lightweight Stackable Base Plates](https://makerworld.com/en/models/1927235-gridfinity-lightweight-stackable-base-plates)**
   by DJR Engineering — A clever stackable "peanut" interlock so you can run a whole
   Z-height stack overnight. It requires support material (an AMS) to separate the stacked
@@ -202,3 +215,7 @@ local Mac app looked correct either way. The fix is to **reverse every face**
 (`[a,b,c] → [a,c,b]`) during conversion. `tools/inline_stls.py` does this robustly: it
 computes each mesh's signed volume and flips the winding whenever the source comes in
 counter-clockwise, so the result is correct regardless of how the STL was exported.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
