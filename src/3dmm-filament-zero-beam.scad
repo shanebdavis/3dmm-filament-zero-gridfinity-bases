@@ -12,7 +12,7 @@
 
 /* [Model] */
 // Which base style to build
-model = "net_light"; // [net_light:Net+, net_heavy:Tape+, net_rigid:Beam+, rigid:Beam]
+model = "rigid"; // [rigid:Beam, net_rigid:Beam+]
 
 /* [Grid] */
 // Squares wide
