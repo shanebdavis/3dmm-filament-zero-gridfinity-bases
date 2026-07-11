@@ -172,21 +172,29 @@ listing title is not embedded), which is why the build output is named
 `3DMM Filament Zero Gridfinity Baseplates.scad` — rename it there if the
 product name changes.
 
-**Disable Auto Arrangement in the profile configuration.** PMM's auto-arranger
-only handles objects up to ~240 mm; auto-sized plates are routinely bigger
-(e.g. 252 mm deep on a P1S), and when it fails PMM shows *"Model cannot fit in
-plates, disable auto-arrangement"* and the download degrades to a single fused
-object (the assembly view). Per Bambu's docs, the toggle lives here:
+**The auto-arrangement trap.** PMM's auto-arranger only handles objects up to
+~240 mm; when an object exceeds that, PMM shows *"Model cannot fit in plates,
+disable auto-arrangement"* and the download degrades to a single fused object
+(the assembly view). The variant defends against this out of the box: in the
+MakerWorld build, plates are capped at 235 mm per side (`mw_safe_plates`,
+checked by default), so arrangement always succeeds. On a P1S that costs one
+grid row per plate (210 mm deep instead of 252) — the solver just adds a plate
+when needed.
+
+For full-bed plates instead, the customizer user unchecks `mw_safe_plates`
+**and** the model profile must have Auto Arrangement disabled, or generation
+fails again. Per Bambu's docs the toggle lives here:
 
 1. Open Parametric Model Maker through the **Model Upload/Edit** page.
 2. Click the **profile configuration button in the top-right corner**.
 3. Disable **Auto Arrangement** in the popup dialog.
 4. Click **Upload** — the setting only persists when saved this way.
 
-With it disabled, geometry coordinates are the placement — the plate hooks
-already position every plate at the center of the selected printer's usable
+With arrangement disabled, geometry coordinates are the placement — the plate
+hooks position every plate at the center of the selected printer's usable
 rectangle (including shifting right of the P1/X1 cutter corner), so no manual
-arranging should be needed.
+arranging should be needed. Desktop OpenSCAD and export_plates.sh are never
+capped; `mw_safe_plates` only affects the MakerWorld build.
 
 ## Customizing your layout (Bambu Studio, no OpenSCAD needed)
 

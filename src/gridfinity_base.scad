@@ -97,6 +97,8 @@ custom_print_width = 256; // [100:1:1000]
 custom_print_depth = 256; // [100:1:1000]
 // Gap between plates in the preview/export, so the slicer can split them into separate objects
 tile_gap = 5; // [2:0.5:20]
+// MakerWorld multi-plate download only: cap each plate at 235 mm so MakerWorld's auto-arrangement can place it (its arranger fails above ~240 mm and the download degrades to one fused object). Uncheck for full-bed plates - requires the model profile to have Auto Arrangement disabled. No effect in desktop OpenSCAD.
+mw_safe_plates = true;
 
 /* [Advanced] */
 // Center on the plate
@@ -478,8 +480,18 @@ function tile_split(total, avail, lead, tail) =
           assert(n >= 1, "Printable area too small for one grid cell plus its edge spacer - pick a bigger printer or a smaller pitch.")
           concat([n], tile_split(total - n, avail, 0, tail));
 
-col_spans = auto_mode ? tile_split(auto_cols, bed[0], slack_w / 2, slack_w / 2) : [];
-row_spans = auto_mode ? tile_split(auto_rows, bed[1], 0, slack_d) : [];
+// MakerWorld's auto-arranger fails on objects bigger than ~240 mm, degrading the
+// multi-plate download to one fused object. In the MakerWorld variant (mw_export)
+// plates are therefore capped at 235 mm by default so arrangement always succeeds;
+// unchecking mw_safe_plates lifts the cap for full-bed plates (the plate hooks
+// place those on the bed themselves, but the model profile must have Auto
+// Arrangement disabled or generation fails). Desktop OpenSCAD is never capped.
+pmm_arrange_cap = 235;
+avail_w = (mw_export && mw_safe_plates) ? min(bed[0], pmm_arrange_cap) : bed[0];
+avail_d = (mw_export && mw_safe_plates) ? min(bed[1], pmm_arrange_cap) : bed[1];
+
+col_spans = auto_mode ? tile_split(auto_cols, avail_w, slack_w / 2, slack_w / 2) : [];
+row_spans = auto_mode ? tile_split(auto_rows, avail_d, 0, slack_d) : [];
 
 // mm position of plate k in the assembled plan: the cells of all plates before it.
 function tile_pos(spans, k) = k <= 0 ? 0 : spans[k - 1] * pitch + tile_pos(spans, k - 1);
@@ -527,6 +539,10 @@ if (auto_mode) {
                  row_spans[ri] * pitch + (ri == len(row_spans) - 1 ? slack_d : 0),
                  " mm printed)"));
     echo("NOTE: Auto Baseplates is active - Grid, Drawer Spacers and Custom Shape settings are ignored.");
+    if (mw_export && mw_safe_plates && (avail_w < bed[0] || avail_d < bed[1]))
+        echo(str("NOTE: plates capped at ", pmm_arrange_cap, " mm for MakerWorld auto-arrangement. ",
+                 "Uncheck 'mw_safe_plates' for full-bed plates (requires Auto Arrangement ",
+                 "disabled in the model profile)."));
 } else {
     // Total outer footprint, including any drawer spacers, so you can size it
     // against your drawer before exporting.
