@@ -85,8 +85,12 @@ row_10_right = 0; // [0:1:9]
 cover_width = 0; // [0:0.5:2000]
 // Total depth (front-to-back, mm) of the area to cover. 0 = off.
 cover_depth = 0; // [0:0.5:2000]
-// Printer the plates must fit on
-printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), p1p:P1P (256x256), p1s:P1S (256x256), p2s:P2S (256x256), x1c:X1 Carbon (256x256), x1e:X1E (256x256), x2d:X2D (256x256), h2s:H2S (340x320), h2d:H2D (350x320), custom:Custom (set below)]
+// Printer the plates must fit on. Sizes are the largest single-color rectangle from the
+// official Bambu Studio machine profiles, not the advertised bed: P1/X1 series lose an
+// 18x28mm front-left corner to the filament-cutter stopper (plates print full-depth,
+// nudged right of the corner), and the dual-nozzle H2/X2 machines are limited to one
+// nozzle's reach for a single color.
+printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), a2l:A2L (330x320), p1p:P1P (238x256 - cutter corner), p1s:P1S (238x256 - cutter corner), p2s:P2S (256x256), x1c:X1 Carbon (238x256 - cutter corner), x1e:X1E (238x256 - cutter corner), x2d:X2D (256x256), h2s:H2S (340x320), h2d:H2D (325x320 single color), h2d_pro:H2D Pro (325x320 single color), h2c:H2C (325x320 single color), custom:Custom (set below)]
 // Printable width (mm), used only when Printer = Custom
 custom_print_width = 256; // [100:1:1000]
 // Printable depth (mm), used only when Printer = Custom
@@ -412,13 +416,22 @@ manual_spec = spec(columns, rows, ext_front, ext_back, ext_left, ext_right,
 // cover_depth. The grid is then chunked into plates that each fit the printer.
 auto_mode = cover_width > 0 && cover_depth > 0;
 
-// Printer id -> printable area [width, depth] in mm.
+// Printer id -> largest single-color printable rectangle [width, depth] in mm, per the
+// bed_exclude_area / extruder_printable_area in Bambu Studio's official machine profiles
+// (github.com/bambulab/BambuStudio, resources/profiles/BBL/machine):
+//   - P1P/P1S/X1C/X1E: 256x256 bed minus an 18x28 front-left cutter-stopper corner.
+//     A full-depth 238-wide plate clears it when placed right of the corner. (The A1,
+//     A1 mini, P2S and X2D profiles have no excluded bed area.)
+//   - H2D/H2D Pro (350x320 bed) and H2C (330x320 bed): one nozzle only reaches 325
+//     of the bed width, and a single color prints from one nozzle.
+//   - X2D: the left nozzle covers the full 256x256, so single color is unrestricted.
 bed_sizes = [
     ["a1_mini", [180, 180]],
-    ["a1",      [256, 256]], ["p1p", [256, 256]], ["p1s", [256, 256]],
-    ["p2s",     [256, 256]], ["x1c", [256, 256]], ["x1e", [256, 256]],
-    ["x2d",     [256, 256]],
-    ["h2s",     [340, 320]], ["h2d", [350, 320]],
+    ["a1",      [256, 256]], ["a2l", [330, 320]],
+    ["p1p",     [238, 256]], ["p1s", [238, 256]], ["p2s", [256, 256]],
+    ["x1c",     [238, 256]], ["x1e", [238, 256]], ["x2d", [256, 256]],
+    ["h2s",     [340, 320]],
+    ["h2d",     [325, 320]], ["h2d_pro", [325, 320]], ["h2c", [325, 320]],
 ];
 bed = printer == "custom" ? [custom_print_width, custom_print_depth]
                           : bed_sizes[search([printer], bed_sizes)[0]][1];

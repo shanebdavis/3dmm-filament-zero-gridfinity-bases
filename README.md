@@ -104,7 +104,12 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
      together for rigidity. Past 41 mm, add another Gridfinity cell instead.
    - **Auto Baseplates** — fill a whole area with one click: enter the total width
      and depth to cover (both must be non-zero to activate — otherwise everything
-     works as normal) and pick your printer (or a custom printable area). The solver
+     works as normal) and pick your printer (or a custom printable area). Printer
+     sizes are the largest single-color rectangle from the official Bambu Studio
+     machine profiles, not the advertised bed — e.g. the P1/X1 series lose an
+     18×28 mm front-left corner to the filament-cutter stopper (so 238×256 usable,
+     with plates placed right of the corner), and the dual-nozzle H2D/H2C print a
+     single color from one nozzle, which only reaches 325 mm of the bed. The solver
      fits the largest half-cell grid inside the area, splits it into plates that each
      fit your printer, and converts the leftover millimeters into drawer spacers
      (split left/right for width, all to the back for depth), so the assembled
