@@ -61,10 +61,13 @@ Highlights:
 ## Repo layout
 
 ```
-src/             OpenSCAD source — the parametric assembler
-stl/             Source geometry: per-variant Corner and Connector STLs
-tools/           STL → polyhedron() inliner (regenerates the geometry baked into the .scad)
-inline-stls.sh   Convenience wrapper: re-inline the STLs into the .scad
+src/               OpenSCAD source — the parametric assembler
+stl/               Source geometry: per-variant Corner and Connector STLs
+tools/             STL → polyhedron() inliner (regenerates the geometry baked into the .scad)
+inline-stls.sh     Convenience wrapper: re-inline the STLs into the .scad
+generate.sh        Batch-render the standard sizes for every model type
+export_plates.sh   Auto Baseplates: render each plate to its own STL (build/plates/)
+make_makerworld.sh Generate the MakerWorld multi-plate upload variant (build/)
 ```
 
 `src/gridfinity_base.scad` is **self-contained**: the corner / connector geometry is
@@ -114,17 +117,50 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
      fit your printer, and converts the leftover millimeters into drawer spacers
      (split left/right for width, all to the back for depth), so the assembled
      footprint is *exactly* what you entered. While active it overrides Grid, Drawer
-     Spacers and Custom Shape. Plates are laid out in their assembled positions with
-     a small gap — export one STL, then in your slicer use *Split to Objects* and
-     print each plate. With **Beam+**, plate-to-plate edges get the interlocking
-     corners automatically, so the finished grid clips together. The Console lists
-     every plate size and its printed footprint.
+     Spacers and Custom Shape. The preview shows all plates laid out in their
+     assembled positions with a small gap. With **Beam+**, plate-to-plate edges get
+     the interlocking corners automatically, so the finished grid clips together.
+     The Console lists every plate size and its printed footprint.
+
+     To print, export each plate as its own file — don't export the whole layout as
+     one STL and split it in the slicer (*Split to Objects* explodes the plates'
+     intentionally disconnected lattice into hundreds of bodies). Either run
+
+     ```
+     ./export_plates.sh -D cover_width=500 -D cover_depth=450 -D 'printer="p1s"'
+     ```
+
+     which renders every plate in parallel to `build/plates/plate_NN.stl`, or set
+     **Export plate** (under Advanced) to 1, 2, 3… in the Customizer and export one
+     STL per plate by hand. Plates are numbered left to right, then front to back.
    - **Advanced** — pitch (42 mm = standard Gridfinity), centering, and preview colour
 4. `F5` to preview, `F6` to render, then **File → Export → Export as STL**.
 
 The **Console** (**View → Console**) prints the total outer footprint in mm
 (`Total size: … wide (X) x … deep (Y)`), including any spacers, so you can check it
 against your drawer before exporting.
+
+## Publishing on MakerWorld (multi-plate)
+
+MakerWorld's Parametric Model Maker can export Auto Baseplates as a proper
+multi-plate 3MF — one build plate per printed plate — via its `mw_plate_N()`
+module convention. The hooks are already defined at the bottom of
+`src/gridfinity_base.scad` (36 plates max; unused ones render empty and
+MakerWorld discards them), plus an `mw_assembly_view()` that shows the whole
+assembled layout as the preview. They are inert in desktop OpenSCAD.
+
+For the upload, MakerWorld needs the script to render *nothing* at the top
+level (the plate modules become the only output), so generate the upload
+variant — identical except for the hidden `mw_export` switch:
+
+```
+./make_makerworld.sh        # -> build/gridfinity_base_makerworld.scad
+```
+
+Caveat from MakerWorld: multi-plate scripts are 3MF-only — the STL download
+button disappears. If you want makers to have both, publish two customizer
+profiles: the plain `src/gridfinity_base.scad` (single plate / manual mode,
+STL-friendly) and the generated multi-plate variant.
 
 ## Customizing your layout (Bambu Studio, no OpenSCAD needed)
 

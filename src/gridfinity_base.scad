@@ -104,6 +104,9 @@ centered = true;
 // Grid spacing in mm (42: standard gridfinity, 84: double, 168: quad)
 pitch = 42;      // [21:1:168]
 
+// Auto Baseplates only: render a single plate by number (1 = front-left plate, counting left to right then front to back) instead of the whole layout - use it to export plates one at a time to your slicer. 0 = the whole layout. Ignored on MakerWorld, where every plate already downloads separately.
+export_plate = 0; // [0:1:36]
+
 // Customize the preview color to match your filament. Use standard HTML color codes: e.g. #ff0000 for red. This does not affect the model output.
 preview_color = "#0099ff";
 
@@ -112,6 +115,13 @@ preview_color = "#0099ff";
 // constants (beam_len, ext_base_len, rail_*, etc.) out of the
 // OpenSCAD / MakerWorld Customizer UI.
 /* [Hidden] */
+
+// MakerWorld multi-plate switch. When true, nothing renders at the top level and the
+// mw_plate_N() / mw_assembly_view() modules (bottom of this file) are the only output —
+// MakerWorld's Parametric Model Maker calls them itself and exports a multi-plate 3MF.
+// Kept false here so desktop OpenSCAD shows the model; ./make_makerworld.sh flips it
+// to generate the upload variant. Do not edit by hand.
+mw_export = false;
 
 // Corner footprint along an edge (mm). Solid and Solid+ share the 12mm corner.
 corner_size = (model == "rigid" || model == "net_rigid") ? 12 : 5;
@@ -528,9 +538,13 @@ if (auto_mode) {
 }
 
 // ------------------------------------------------------------
-// Build it. Centering shifts the X/Y footprint onto the origin — the whole plan
-// (including gaps) in auto mode, the single plate in manual mode.
-color(preview_color) {
+// Output. Everything printable is reachable two ways — the whole layout at once
+// (assembly_view) or one plate at a time (plate) — so the same geometry serves
+// desktop OpenSCAD, per-plate STL export, and MakerWorld multi-plate 3MF.
+
+// The whole plan. Centering shifts the X/Y footprint onto the origin — the full
+// tile layout (including gaps) in auto mode, the single plate in manual mode.
+module assembly_view() {
     if (auto_mode) {
         if (centered)
             translate([slack_w / 2 - (cover_width + (len(col_spans) - 1) * tile_gap) / 2,
@@ -542,11 +556,85 @@ color(preview_color) {
         if (centered)
             translate([(ext_left - ext_right - plate_w(manual_spec)) / 2,
                        (ext_front - ext_back - plate_h(manual_spec)) / 2, 0])
-                assembly(manual_spec);
+            assembly(manual_spec);
         else
             assembly(manual_spec);
     }
 }
+
+n_plates = auto_mode ? len(col_spans) * len(row_spans) : 1;
+
+// One printable plate, centered on the origin (its own build plate). Plates are
+// numbered 1..n_plates: 1 = front-left, counting left to right, then front to back.
+// Manual mode is a single plate. Out-of-range k renders nothing — MakerWorld
+// discards empty plates, which is how the fixed list of mw_plate_N() hooks below
+// adapts to the solver's variable plate count.
+module plate(k) {
+    if (k >= 1 && k <= n_plates) {
+        s = auto_mode ? tile_spec((k - 1) % len(col_spans),
+                                  floor((k - 1) / len(col_spans)))
+                      : manual_spec;
+        translate([(s_ext_left(s) - s_ext_right(s) - plate_w(s)) / 2,
+                   (s_ext_front(s) - s_ext_back(s) - plate_h(s)) / 2, 0])
+            assembly(s);
+    }
+}
+
+if (auto_mode && n_plates > 36)
+    echo(str("WARNING: ", n_plates, " plates - only the first 36 are reachable via ",
+             "export_plate / MakerWorld. Use a larger printer or split the cover area."));
+
+if (!mw_export)
+    color(preview_color) {
+        if (auto_mode && export_plate > 0) plate(export_plate);
+        else assembly_view();
+    }
+
+// ------------------------------------------------------------
+// MakerWorld Parametric Model Maker hooks (multi-plate 3MF output).
+// PMM detects modules named mw_plate_N() and exports each as its own build plate;
+// mw_assembly_view() is the preview-only assembled view (never exported). Empty
+// plates are discarded, so 36 fixed hooks cover any solver outcome up to 6x6
+// plates. These are inert on desktop OpenSCAD (nothing calls them); the uploaded
+// MakerWorld variant (see make_makerworld.sh) sets mw_export = true so they are
+// the only output.
+module mw_assembly_view() { color(preview_color) assembly_view(); }
+module mw_plate_1()  { color(preview_color) plate(1); }
+module mw_plate_2()  { color(preview_color) plate(2); }
+module mw_plate_3()  { color(preview_color) plate(3); }
+module mw_plate_4()  { color(preview_color) plate(4); }
+module mw_plate_5()  { color(preview_color) plate(5); }
+module mw_plate_6()  { color(preview_color) plate(6); }
+module mw_plate_7()  { color(preview_color) plate(7); }
+module mw_plate_8()  { color(preview_color) plate(8); }
+module mw_plate_9()  { color(preview_color) plate(9); }
+module mw_plate_10() { color(preview_color) plate(10); }
+module mw_plate_11() { color(preview_color) plate(11); }
+module mw_plate_12() { color(preview_color) plate(12); }
+module mw_plate_13() { color(preview_color) plate(13); }
+module mw_plate_14() { color(preview_color) plate(14); }
+module mw_plate_15() { color(preview_color) plate(15); }
+module mw_plate_16() { color(preview_color) plate(16); }
+module mw_plate_17() { color(preview_color) plate(17); }
+module mw_plate_18() { color(preview_color) plate(18); }
+module mw_plate_19() { color(preview_color) plate(19); }
+module mw_plate_20() { color(preview_color) plate(20); }
+module mw_plate_21() { color(preview_color) plate(21); }
+module mw_plate_22() { color(preview_color) plate(22); }
+module mw_plate_23() { color(preview_color) plate(23); }
+module mw_plate_24() { color(preview_color) plate(24); }
+module mw_plate_25() { color(preview_color) plate(25); }
+module mw_plate_26() { color(preview_color) plate(26); }
+module mw_plate_27() { color(preview_color) plate(27); }
+module mw_plate_28() { color(preview_color) plate(28); }
+module mw_plate_29() { color(preview_color) plate(29); }
+module mw_plate_30() { color(preview_color) plate(30); }
+module mw_plate_31() { color(preview_color) plate(31); }
+module mw_plate_32() { color(preview_color) plate(32); }
+module mw_plate_33() { color(preview_color) plate(33); }
+module mw_plate_34() { color(preview_color) plate(34); }
+module mw_plate_35() { color(preview_color) plate(35); }
+module mw_plate_36() { color(preview_color) plate(36); }
 
 // ============================================================
 //  INLINED GEOMETRY
