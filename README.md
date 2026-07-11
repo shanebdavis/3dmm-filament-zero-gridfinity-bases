@@ -67,6 +67,7 @@ tools/             STL → polyhedron() inliner (regenerates the geometry baked 
 inline-stls.sh     Convenience wrapper: re-inline the STLs into the .scad
 generate.sh        Batch-render the standard sizes for every model type
 export_plates.sh   Auto Baseplates: render each plate to its own STL (build/plates/)
+src/makerworld_hooks.scad  MakerWorld mw_plate hooks, appended into the upload variant
 make_makerworld.sh Generate the MakerWorld multi-plate upload variant (build/)
 ```
 
@@ -144,23 +145,28 @@ against your drawer before exporting.
 
 MakerWorld's Parametric Model Maker can export Auto Baseplates as a proper
 multi-plate 3MF — one build plate per printed plate — via its `mw_plate_N()`
-module convention. The hooks are already defined at the bottom of
-`src/gridfinity_base.scad` (36 plates max; unused ones render empty and
-MakerWorld discards them), plus an `mw_assembly_view()` that shows the whole
-assembled layout as the preview. They are inert in desktop OpenSCAD.
-
-For the upload, MakerWorld needs the script to render *nothing* at the top
-level (the plate modules become the only output), so generate the upload
-variant — identical except for the hidden `mw_export` switch:
+module convention. **Upload the generated variant, not the src file:**
 
 ```
 ./make_makerworld.sh        # -> build/gridfinity_base_makerworld.scad
 ```
 
-Caveat from MakerWorld: multi-plate scripts are 3MF-only — the STL download
-button disappears. If you want makers to have both, publish two customizer
-profiles: the plain `src/gridfinity_base.scad` (single plate / manual mode,
-STL-friendly) and the generated multi-plate variant.
+The variant is the src file with the top-level render silenced (hidden
+`mw_export` switch) plus the plate hooks from `src/makerworld_hooks.scad`
+appended: 36 `mw_plate_N()` modules (the solver fills as many as it needs;
+empty ones are discarded by MakerWorld) and an `mw_assembly_view()` that shows
+the whole assembled layout as the preview.
+
+The split exists because PMM renders the script's *top level into every
+plate*: a file with both a visible layout and plate hooks exports N copies of
+the entire layout. That's also why the hooks must never be added to
+`src/gridfinity_base.scad` itself (make_makerworld.sh refuses to build if they
+are). Uploading the plain src file to MakerWorld is still fine — it just
+behaves as a classic single-output customizer script, with the STL download
+button that multi-plate scripts lose. Publishing both gives makers the choice.
+
+If plates come out larger than ~240×235 mm, disable Auto Arrangement in the
+PMM profile settings — its auto-arrange has a documented size limit.
 
 ## Customizing your layout (Bambu Studio, no OpenSCAD needed)
 

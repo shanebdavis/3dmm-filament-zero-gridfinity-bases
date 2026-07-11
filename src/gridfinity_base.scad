@@ -82,9 +82,9 @@ row_10_right = 0; // [0:1:9]
 // spacers so the assembled footprint is exactly what you asked for. While active,
 // the Grid, Drawer Spacers and Custom Shape settings above are ignored.
 // Total width (mm) of the area to cover. 0 = off.
-cover_width = 0; // [0:0.5:2000]
+cover_width = 0; // [0:1:2000]
 // Total depth (front-to-back, mm) of the area to cover. 0 = off.
-cover_depth = 0; // [0:0.5:2000]
+cover_depth = 0; // [0:1:2000]
 // Printer the plates must fit on. Sizes are the largest single-color rectangle from the
 // official Bambu Studio machine profiles, not the advertised bed: P1/X1 series lose an
 // 18x28mm front-left corner to the filament-cutter stopper (plates print full-depth,
@@ -116,11 +116,10 @@ preview_color = "#0099ff";
 // OpenSCAD / MakerWorld Customizer UI.
 /* [Hidden] */
 
-// MakerWorld multi-plate switch. When true, nothing renders at the top level and the
-// mw_plate_N() / mw_assembly_view() modules (bottom of this file) are the only output —
-// MakerWorld's Parametric Model Maker calls them itself and exports a multi-plate 3MF.
-// Kept false here so desktop OpenSCAD shows the model; ./make_makerworld.sh flips it
-// to generate the upload variant. Do not edit by hand.
+// MakerWorld multi-plate switch. When true, nothing renders at the top level so the
+// appended plate-hook modules (see make_makerworld.sh) are the only output. Kept
+// false here so desktop OpenSCAD shows the model; ./make_makerworld.sh flips it in
+// the generated upload variant. Do not edit by hand.
 mw_export = false;
 
 // Corner footprint along an edge (mm). Solid and Solid+ share the 12mm corner.
@@ -590,51 +589,13 @@ if (!mw_export)
         else assembly_view();
     }
 
-// ------------------------------------------------------------
-// MakerWorld Parametric Model Maker hooks (multi-plate 3MF output).
-// PMM detects modules named mw_plate_N() and exports each as its own build plate;
-// mw_assembly_view() is the preview-only assembled view (never exported). Empty
-// plates are discarded, so 36 fixed hooks cover any solver outcome up to 6x6
-// plates. These are inert on desktop OpenSCAD (nothing calls them); the uploaded
-// MakerWorld variant (see make_makerworld.sh) sets mw_export = true so they are
-// the only output.
-module mw_assembly_view() { color(preview_color) assembly_view(); }
-module mw_plate_1()  { color(preview_color) plate(1); }
-module mw_plate_2()  { color(preview_color) plate(2); }
-module mw_plate_3()  { color(preview_color) plate(3); }
-module mw_plate_4()  { color(preview_color) plate(4); }
-module mw_plate_5()  { color(preview_color) plate(5); }
-module mw_plate_6()  { color(preview_color) plate(6); }
-module mw_plate_7()  { color(preview_color) plate(7); }
-module mw_plate_8()  { color(preview_color) plate(8); }
-module mw_plate_9()  { color(preview_color) plate(9); }
-module mw_plate_10() { color(preview_color) plate(10); }
-module mw_plate_11() { color(preview_color) plate(11); }
-module mw_plate_12() { color(preview_color) plate(12); }
-module mw_plate_13() { color(preview_color) plate(13); }
-module mw_plate_14() { color(preview_color) plate(14); }
-module mw_plate_15() { color(preview_color) plate(15); }
-module mw_plate_16() { color(preview_color) plate(16); }
-module mw_plate_17() { color(preview_color) plate(17); }
-module mw_plate_18() { color(preview_color) plate(18); }
-module mw_plate_19() { color(preview_color) plate(19); }
-module mw_plate_20() { color(preview_color) plate(20); }
-module mw_plate_21() { color(preview_color) plate(21); }
-module mw_plate_22() { color(preview_color) plate(22); }
-module mw_plate_23() { color(preview_color) plate(23); }
-module mw_plate_24() { color(preview_color) plate(24); }
-module mw_plate_25() { color(preview_color) plate(25); }
-module mw_plate_26() { color(preview_color) plate(26); }
-module mw_plate_27() { color(preview_color) plate(27); }
-module mw_plate_28() { color(preview_color) plate(28); }
-module mw_plate_29() { color(preview_color) plate(29); }
-module mw_plate_30() { color(preview_color) plate(30); }
-module mw_plate_31() { color(preview_color) plate(31); }
-module mw_plate_32() { color(preview_color) plate(32); }
-module mw_plate_33() { color(preview_color) plate(33); }
-module mw_plate_34() { color(preview_color) plate(34); }
-module mw_plate_35() { color(preview_color) plate(35); }
-module mw_plate_36() { color(preview_color) plate(36); }
+// NOTE: The MakerWorld multi-plate hooks are deliberately NOT in this file.
+// MakerWorld's Parametric Model Maker renders the top level of the script into
+// every plate module it finds, so a file containing both a top-level render and
+// plate hooks exports N copies of the whole layout. This file is the normal,
+// STL-friendly single-output script; ./make_makerworld.sh assembles the
+// multi-plate upload variant from it (silences the top level, appends the
+// hooks from src/makerworld_hooks.scad).
 
 // ============================================================
 //  INLINED GEOMETRY
