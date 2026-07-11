@@ -172,8 +172,14 @@ listing title is not embedded), which is why the build output is named
 `3DMM Filament Zero Gridfinity Baseplates.scad` — rename it there if the
 product name changes.
 
-If plates come out larger than ~240×235 mm, disable Auto Arrangement in the
-PMM profile settings — its auto-arrange has a documented size limit.
+**Disable Auto Arrangement in the PMM profile settings.** PMM's auto-arranger
+only handles objects up to ~240×235 mm; auto-sized plates are routinely bigger
+(e.g. 252 mm deep on a P1S), and when it fails PMM shows *"Model cannot fit in
+plates, disable auto-arrangement"* and the download degrades to a single fused
+object. With it disabled, geometry coordinates are the placement — so the
+plate hooks already position every plate at the center of the selected
+printer's usable rectangle (including shifting right of the P1/X1 cutter
+corner); no manual arranging should be needed.
 
 ## Customizing your layout (Bambu Studio, no OpenSCAD needed)
 

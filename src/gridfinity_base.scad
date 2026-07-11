@@ -434,16 +434,31 @@ auto_mode = cover_width > 0 && cover_depth > 0;
 //   - H2D/H2D Pro (350x320 bed) and H2C (330x320 bed): one nozzle only reaches 325
 //     of the bed width, and a single color prints from one nozzle.
 //   - X2D: the left nozzle covers the full 256x256, so single color is unrestricted.
+// Each entry is [id, printable [w, d], printable-rectangle origin [x, y] on the
+// physical bed]. The origin matters for the P1/X1 family: their usable rectangle
+// starts at x = 18 (right of the cutter corner), so a plate placed centered on
+// the usable rectangle lands at bed x = 18 + 238/2, clear of the exclusion.
 bed_sizes = [
-    ["a1_mini", [180, 180]],
-    ["a1",      [256, 256]], ["a2l", [330, 320]],
-    ["p1p",     [238, 256]], ["p1s", [238, 256]], ["p2s", [256, 256]],
-    ["x1c",     [238, 256]], ["x1e", [238, 256]], ["x2d", [256, 256]],
-    ["h2s",     [340, 320]],
-    ["h2d",     [325, 320]], ["h2d_pro", [325, 320]], ["h2c", [325, 320]],
+    ["a1_mini", [180, 180], [ 0, 0]],
+    ["a1",      [256, 256], [ 0, 0]], ["a2l", [330, 320], [0, 0]],
+    ["p1p",     [238, 256], [18, 0]], ["p1s", [238, 256], [18, 0]],
+    ["p2s",     [256, 256], [ 0, 0]],
+    ["x1c",     [238, 256], [18, 0]], ["x1e", [238, 256], [18, 0]],
+    ["x2d",     [256, 256], [ 0, 0]],
+    ["h2s",     [340, 320], [ 0, 0]],
+    ["h2d",     [325, 320], [ 0, 0]], ["h2d_pro", [325, 320], [0, 0]],
+    ["h2c",     [325, 320], [ 0, 0]],
 ];
-bed = printer == "custom" ? [custom_print_width, custom_print_depth]
-                          : bed_sizes[search([printer], bed_sizes)[0]][1];
+bed_entry  = printer == "custom" ? undef : bed_sizes[search([printer], bed_sizes)[0]];
+bed        = printer == "custom" ? [custom_print_width, custom_print_depth] : bed_entry[1];
+bed_origin = printer == "custom" ? [0, 0]                                   : bed_entry[2];
+
+// Where a plate's center belongs in bed coordinates (origin = the bed's front-left
+// corner, Bambu Studio convention): the middle of the printable rectangle. Used by
+// the MakerWorld plate hooks, which must position geometry themselves when PMM's
+// Auto Arrangement is disabled — required, since its arranger only handles objects
+// up to ~240x235 mm and auto-sized plates can be bigger.
+bed_center = [bed_origin[0] + bed[0] / 2, bed_origin[1] + bed[1] / 2];
 
 // Grid size in (possibly fractional) cells, and the leftover slack in mm.
 auto_cols = floor(cover_width / (pitch / 2)) / 2;
