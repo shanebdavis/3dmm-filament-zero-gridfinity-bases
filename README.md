@@ -131,7 +131,7 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
      ./export_plates.sh -D cover_width=500 -D cover_depth=450 -D 'printer="p1s"'
      ```
 
-     which renders every plate in parallel to `build/plates/plate_NN.stl`, or set
+     which renders every plate in parallel to `build/plates/… - Plate NN.stl`, or set
      **Export plate** (under Advanced) to 1, 2, 3… in the Customizer and export one
      STL per plate by hand. Plates are numbered left to right, then front to back.
    - **Advanced** — pitch (42 mm = standard Gridfinity), centering, and preview colour
@@ -148,7 +148,7 @@ multi-plate 3MF — one build plate per printed plate — via its `mw_plate_N()`
 module convention. **Upload the generated variant, not the src file:**
 
 ```
-./make_makerworld.sh        # -> build/gridfinity_base_makerworld.scad
+./make_makerworld.sh        # -> build/3DMM Filament Zero Gridfinity Baseplates.scad
 ```
 
 The variant is the src file with the top-level render silenced (hidden
@@ -163,7 +163,14 @@ the entire layout. That's also why the hooks must never be added to
 `src/gridfinity_base.scad` itself (make_makerworld.sh refuses to build if they
 are). Uploading the plain src file to MakerWorld is still fine — it just
 behaves as a classic single-output customizer script, with the STL download
-button that multi-plate scripts lose. Publishing both gives makers the choice.
+button that multi-plate scripts lose. Publishing both gives makers the choice:
+3MF with all plates in one download, or STL one plate at a time via the
+**Export plate** parameter on the plain script.
+
+MakerWorld names the downloaded 3MF after the uploaded `.scad` file (the
+listing title is not embedded), which is why the build output is named
+`3DMM Filament Zero Gridfinity Baseplates.scad` — rename it there if the
+product name changes.
 
 If plates come out larger than ~240×235 mm, disable Auto Arrangement in the
 PMM profile settings — its auto-arrange has a documented size limit.

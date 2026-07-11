@@ -20,10 +20,11 @@ if ! command -v openscad >/dev/null 2>&1; then
     exit 1
 fi
 
+NAME="3DMM Filament Zero Gridfinity Baseplates"
 SCAD="src/gridfinity_base.scad"
 OUT="build/plates"
 mkdir -p "$OUT"
-rm -f "$OUT"/plate_*.stl
+rm -f "$OUT"/*.stl
 
 # Evaluate the script without rendering (echo export) to read the solver's
 # "... = N plates" console line.
@@ -46,12 +47,12 @@ JOBS="$( (command -v nproc >/dev/null 2>&1 && nproc) || sysctl -n hw.ncpu 2>/dev
 render() {
     local k="$1"; shift
     local out
-    out="$(printf '%s/plate_%02d.stl' "$OUT" "$k")"
+    out="$(printf '%s/%s - Plate %02d.stl' "$OUT" "$NAME" "$k")"
     echo "==> $out"
     openscad -q -o "$out" -D "export_plate=$k" "$@" "$SCAD"
 }
 export -f render
-export SCAD OUT
+export SCAD OUT NAME
 
 for k in $(seq 1 "$N"); do printf '%s\0' "$k"; done |
     xargs -0 -n1 -P "$JOBS" -I{} bash -c 'render "$@"' _ {} "$@"

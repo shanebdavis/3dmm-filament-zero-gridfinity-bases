@@ -15,17 +15,22 @@
 #                               which silences the top-level render)
 # + src/makerworld_hooks.scad  (the mw_plate_N / mw_assembly_view modules)
 #
-# Upload build/gridfinity_base_makerworld.scad for the multi-plate listing.
-# Note: MakerWorld disables STL download for multi-plate scripts, so keep the
-# regular src/gridfinity_base.scad published too if you want STL downloads.
+# Upload the generated file for the multi-plate listing. Note: MakerWorld
+# disables STL download for multi-plate scripts (3MF only), so keep the
+# regular src/gridfinity_base.scad published too if you want STL downloads —
+# there, the Export plate parameter serves individual plates as STL.
 #
 # Usage:  ./make_makerworld.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# MakerWorld names the customizer's downloaded 3MF after the uploaded .scad
+# file, so the build output carries the product name.
+NAME="3DMM Filament Zero Gridfinity Baseplates"
+
 SRC="src/gridfinity_base.scad"
 HOOKS="src/makerworld_hooks.scad"
-OUT="build/gridfinity_base_makerworld.scad"
+OUT="build/$NAME.scad"
 mkdir -p build
 
 grep -q '^mw_export = false;$' "$SRC" || {
