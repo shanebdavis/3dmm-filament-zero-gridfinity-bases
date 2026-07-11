@@ -102,6 +102,18 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
      flush in a drawer. Each is independent, so you can pad just the sides you need.
      A tie-rail runs along the outer edge of each spaced side, locking the spacers
      together for rigidity. Past 41 mm, add another Gridfinity cell instead.
+   - **Auto Baseplates** — fill a whole area with one click: enter the total width
+     and depth to cover (both must be non-zero to activate — otherwise everything
+     works as normal) and pick your printer (or a custom printable area). The solver
+     fits the largest half-cell grid inside the area, splits it into plates that each
+     fit your printer, and converts the leftover millimeters into drawer spacers
+     (split left/right for width, all to the back for depth), so the assembled
+     footprint is *exactly* what you entered. While active it overrides Grid, Drawer
+     Spacers and Custom Shape. Plates are laid out in their assembled positions with
+     a small gap — export one STL, then in your slicer use *Split to Objects* and
+     print each plate. With **Beam+**, plate-to-plate edges get the interlocking
+     corners automatically, so the finished grid clips together. The Console lists
+     every plate size and its printed footprint.
    - **Advanced** — pitch (42 mm = standard Gridfinity), centering, and preview colour
 4. `F5` to preview, `F6` to render, then **File → Export → Export as STL**.
 

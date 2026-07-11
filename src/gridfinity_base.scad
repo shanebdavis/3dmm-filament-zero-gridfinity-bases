@@ -17,7 +17,7 @@ model = "rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam
 /* [Grid] */
 // Squares wide
 columns = 4; // [1:0.5:10]
-// Squares long
+// Squares deep
 rows = 4;    // [1:0.5:10]
 
 /* [Drawer Spacers] */
@@ -74,6 +74,25 @@ row_9_right = 0; // [0:1:9]
 row_10_left = 0; // [0:1:9]
 // Remove squares from row 10 right
 row_10_right = 0; // [0:1:9]
+
+/* [Auto Baseplates] */
+// Cover a whole area (a drawer, a shelf) with auto-sized plates: set BOTH cover sizes
+// non-zero and the solver fills the area with the largest grid that fits, splits it
+// into plates sized for your printer, and turns the leftover millimeters into edge
+// spacers so the assembled footprint is exactly what you asked for. While active,
+// the Grid, Drawer Spacers and Custom Shape settings above are ignored.
+// Total width (mm) of the area to cover. 0 = off.
+cover_width = 0; // [0:0.5:2000]
+// Total depth (front-to-back, mm) of the area to cover. 0 = off.
+cover_depth = 0; // [0:0.5:2000]
+// Printer the plates must fit on
+printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), p1p:P1P (256x256), p1s:P1S (256x256), p2s:P2S (256x256), x1c:X1 Carbon (256x256), x1e:X1E (256x256), x2d:X2D (256x256), h2s:H2S (340x320), h2d:H2D (350x320), custom:Custom (set below)]
+// Printable width (mm), used only when Printer = Custom
+custom_print_width = 256; // [100:1:1000]
+// Printable depth (mm), used only when Printer = Custom
+custom_print_depth = 256; // [100:1:1000]
+// Gap between plates in the preview/export, so the slicer can split them into separate objects
+tile_gap = 5; // [2:0.5:20]
 
 /* [Advanced] */
 // Center on the plate
@@ -204,8 +223,8 @@ module connector_y(len) { if (len > 0) { if (beam) beam_y(len); else cube([conn_
 // yields w or h = pitch/2 and the connector lengths shrink to fit. If a corner
 // is too big for the edge (e.g. 12mm rigid corners on a 21mm half edge), the
 // connector clamps to 0 and the two corners simply overlap and union.
-module rcell(i, j) {
-    w = col_w(i);  h = row_h(j);
+module rcell(s, i, j) {
+    w = col_w(s, i);  h = row_h(s, j);
     cs = corner_size;
     // Classify each cell side. A side is on the shape boundary when there is no
     // neighbouring cell on that side — either the plate rim, or a jagged step where
@@ -214,16 +233,16 @@ module rcell(i, j) {
     // "blocked" = boundary with a spacer mating there (keep a plain Solid corner).
     // Spacers only run along the outermost rows/columns, so a cut-created step is
     // always exposed, never blocked.
-    f = !cell_at(i, j - 1);   b = !cell_at(i, j + 1);
-    l = !cell_at(i - 1, j);   r = !cell_at(i + 1, j);
-    fb = f && (j == 0)         && (ext_front > 0);   fe = f && !fb;
-    bb = b && (j == nrows - 1) && (ext_back  > 0);   be = b && !bb;
-    lb = l && (i == 0)         && (ext_left  > 0);   le = l && !lb;
-    rb = r && (i == ncols - 1) && (ext_right > 0);   re = r && !rb;
+    f = !cell_at(s, i, j - 1);   b = !cell_at(s, i, j + 1);
+    l = !cell_at(s, i - 1, j);   r = !cell_at(s, i + 1, j);
+    fb = f && (j == 0)              && (s_ext_front(s) > 0);   fe = f && !fb;
+    bb = b && (j == s_nrows(s) - 1) && (s_ext_back(s)  > 0);   be = b && !bb;
+    lb = l && (i == 0)              && (s_ext_left(s)  > 0);   le = l && !lb;
+    rb = r && (i == s_ncols(s) - 1) && (s_ext_right(s) > 0);   re = r && !rb;
     // Diagonal neighbours: a corner with both adjacent squares present but the diagonal
     // square cut away is a re-entrant plate corner ("open" intersection) — see corner_part.
-    dfl = !cell_at(i - 1, j - 1);   dfr = !cell_at(i + 1, j - 1);
-    dbl = !cell_at(i - 1, j + 1);   dbr = !cell_at(i + 1, j + 1);
+    dfl = !cell_at(s, i - 1, j - 1);   dfr = !cell_at(s, i + 1, j - 1);
+    dbl = !cell_at(s, i - 1, j + 1);   dbr = !cell_at(s, i + 1, j + 1);
     // corner_part(plus, outer, both, swap, open):
     //   plus  = the on-boundary edge is exposed AND neither edge is spacered (Solid+ mate);
     //           a boundary corner with a spacer in either direction falls back to plain Solid.
@@ -261,54 +280,66 @@ module rcell(i, j) {
     }
 }
 
+// ------------------------------------------------------------
+// Plate spec. One generator builds both the manual plate and every Auto Baseplates
+// tile, so all per-plate inputs travel together as a single list (OpenSCAD has no
+// structs) and everything below takes the spec `s` as its first argument:
+//   [cols, rows, ext_front, ext_back, ext_left, ext_right, cuts_left, cuts_right]
+// cols/rows may end in .5 (trailing half column/row); the cuts are per-row Custom
+// Shape lists, row 1 (front) first — entries beyond the list's length count as 0,
+// so an empty list means "no cuts".
+function spec(cols, rows, extF, extB, extL, extR, cutsL, cutsR) =
+    [cols, rows, extF, extB, extL, extR, cutsL, cutsR];
+function s_cols(s)       = s[0];
+function s_rows(s)       = s[1];
+function s_ext_front(s)  = s[2];
+function s_ext_back(s)   = s[3];
+function s_ext_left(s)   = s[4];
+function s_ext_right(s)  = s[5];
+function s_cuts_left(s)  = s[6];
+function s_cuts_right(s) = s[7];
+
 // Split the (possibly fractional) grid size into whole cells plus a trailing half.
-// A .5 on columns/rows means a half-cell column/row, so 2.5 -> 2 full + 1 half.
-cols_full = floor(columns);
-rows_full = floor(rows);
-half_w = (columns - cols_full) >= 0.5;
-half_h = (rows    - rows_full) >= 0.5;
+// A .5 on cols/rows means a half-cell column/row, so 2.5 -> 2 full + 1 half;
+// ncols/nrows count the half as one (narrower) cell.
+function s_half_w(s) = s_cols(s) - floor(s_cols(s)) >= 0.5;
+function s_half_h(s) = s_rows(s) - floor(s_rows(s)) >= 0.5;
+function s_ncols(s)  = floor(s_cols(s)) + (s_half_w(s) ? 1 : 0);
+function s_nrows(s)  = floor(s_rows(s)) + (s_half_h(s) ? 1 : 0);
 
 // ------------------------------------------------------------
-// Cell model. The grid is ncols x nrows cells; a trailing half column/row counts
-// as one (narrower) cell. Custom Shape cuts remove cells from the left/right end
-// of each row, so a cell exists only if its column index lands inside the row's
-// surviving span. Everything downstream (corner selection, connectors, spacers)
-// asks cell_at() instead of assuming a full rectangle.
-ncols = cols_full + (half_w ? 1 : 0);
-nrows = rows_full + (half_h ? 1 : 0);
-
-// Per-row cut requests, row 1 (front) first. Only the first nrows entries apply.
-cuts_left  = [row_1_left, row_2_left, row_3_left, row_4_left, row_5_left,
-              row_6_left, row_7_left, row_8_left, row_9_left, row_10_left];
-cuts_right = [row_1_right, row_2_right, row_3_right, row_4_right, row_5_right,
-              row_6_right, row_7_right, row_8_right, row_9_right, row_10_right];
+// Cell model. The grid is ncols x nrows cells. Custom Shape cuts remove cells
+// from the left/right end of each row, so a cell exists only if its column index
+// lands inside the row's surviving span. Everything downstream (corner selection,
+// connectors, spacers) asks cell_at() instead of assuming a full rectangle.
 
 // Effective cuts, clamped so every row keeps at least one cell (left wins a tie).
-function cutL(j) = min(cuts_left[j],  ncols - 1);
-function cutR(j) = min(cuts_right[j], ncols - 1 - cutL(j));
+function cut_at(cuts, j) = j < len(cuts) ? cuts[j] : 0;
+function cutL(s, j) = min(cut_at(s_cuts_left(s), j),  s_ncols(s) - 1);
+function cutR(s, j) = min(cut_at(s_cuts_right(s), j), s_ncols(s) - 1 - cutL(s, j));
 
 // Does a cell exist at column i, row j? False off-grid, so neighbour probes
-// like cell_at(i, j - 1) work unguarded from edge cells.
-function cell_at(i, j) =
-    i >= 0 && i < ncols && j >= 0 && j < nrows &&
-    i >= cutL(j) && i < ncols - cutR(j);
+// like cell_at(s, i, j - 1) work unguarded from edge cells.
+function cell_at(s, i, j) =
+    i >= 0 && i < s_ncols(s) && j >= 0 && j < s_nrows(s) &&
+    i >= cutL(s, j) && i < s_ncols(s) - cutR(s, j);
 
 // Cell sizes: uniform pitch except the trailing half column/row.
-function col_w(i) = (half_w && i == ncols - 1) ? pitch / 2 : pitch;
-function row_h(j) = (half_h && j == nrows - 1) ? pitch / 2 : pitch;
+function col_w(s, i) = (s_half_w(s) && i == s_ncols(s) - 1) ? pitch / 2 : pitch;
+function row_h(s, j) = (s_half_h(s) && j == s_nrows(s) - 1) ? pitch / 2 : pitch;
 
 // Tile every surviving cell. Cell (i, j) sits at [i, j] * pitch (only the
 // trailing column/row can be half-size, so origins stay on the pitch grid).
-module grid() {
-    for (i = [0 : ncols - 1], j = [0 : nrows - 1])
-        if (cell_at(i, j))
-            translate([i * pitch, j * pitch, 0]) rcell(i, j);
+module grid(s) {
+    for (i = [0 : s_ncols(s) - 1], j = [0 : s_nrows(s) - 1])
+        if (cell_at(s, i, j))
+            translate([i * pitch, j * pitch, 0]) rcell(s, i, j);
 }
 
 // ------------------------------------------------------------
 // Drawer spacers.
-function plate_w() = cols_full * pitch + (half_w ? pitch / 2 : 0);
-function plate_h() = rows_full * pitch + (half_h ? pitch / 2 : 0);
+function plate_w(s) = floor(s_cols(s)) * pitch + (s_half_w(s) ? pitch / 2 : 0);
+function plate_h(s) = floor(s_rows(s)) * pitch + (s_half_h(s) ? pitch / 2 : 0);
 
 // Lay extension prisms along each active edge, but only against cells that survived
 // the Custom Shape cuts: the front/back spacers run along the present cells of the
@@ -321,75 +352,187 @@ function plate_h() = rows_full * pitch + (half_h ? pitch / 2 : 0);
 // a single larger triangular spacer, and the rail stretches fuse — reproducing the
 // old whole-edge layout on a full rectangle, while gaps and run-ends get single
 // prisms and the rail stops with them.
-module spacers() {
-    W = plate_w(); H = plate_h();
+module spacers(s) {
+    W = plate_w(s); H = plate_h(s);
+    extF = s_ext_front(s); extB = s_ext_back(s);
+    extL = s_ext_left(s);  extR = s_ext_right(s);
 
-    if (ext_front > 0)                                  // front edge (Y = 0), outward -Y
-        for (i = [0 : ncols - 1]) if (cell_at(i, 0)) {
-            x0 = i * pitch; x1 = x0 + col_w(i);
-            translate([x0, 0, 0])                 rotate([0,0,-90]) extension_part(ext_front);
-            translate([x1, 0, 0]) mirror([1,0,0]) rotate([0,0,-90]) extension_part(ext_front);
-            translate([x0, -ext_front, 0]) cube([col_w(i), rail_w, rail_h]);   // tie-rail at the tips
+    if (extF > 0)                                       // front edge (Y = 0), outward -Y
+        for (i = [0 : s_ncols(s) - 1]) if (cell_at(s, i, 0)) {
+            x0 = i * pitch; x1 = x0 + col_w(s, i);
+            translate([x0, 0, 0])                 rotate([0,0,-90]) extension_part(extF);
+            translate([x1, 0, 0]) mirror([1,0,0]) rotate([0,0,-90]) extension_part(extF);
+            translate([x0, -extF, 0]) cube([col_w(s, i), rail_w, rail_h]);   // tie-rail at the tips
         }
 
-    if (ext_back > 0)                                   // back edge (Y = H), outward +Y
-        for (i = [0 : ncols - 1]) if (cell_at(i, nrows - 1)) {
-            x0 = i * pitch; x1 = x0 + col_w(i);
-            translate([x0, H, 0]) mirror([1,0,0]) rotate([0,0, 90]) extension_part(ext_back);
-            translate([x1, H, 0])                 rotate([0,0, 90]) extension_part(ext_back);
-            translate([x0, H + ext_back - rail_w, 0]) cube([col_w(i), rail_w, rail_h]);
+    if (extB > 0)                                       // back edge (Y = H), outward +Y
+        for (i = [0 : s_ncols(s) - 1]) if (cell_at(s, i, s_nrows(s) - 1)) {
+            x0 = i * pitch; x1 = x0 + col_w(s, i);
+            translate([x0, H, 0]) mirror([1,0,0]) rotate([0,0, 90]) extension_part(extB);
+            translate([x1, H, 0])                 rotate([0,0, 90]) extension_part(extB);
+            translate([x0, H + extB - rail_w, 0]) cube([col_w(s, i), rail_w, rail_h]);
         }
 
-    if (ext_left > 0)                                   // left edge (X = 0), outward -X
-        for (j = [0 : nrows - 1]) if (cell_at(0, j)) {
-            y0 = j * pitch; y1 = y0 + row_h(j);
-            translate([0, y0, 0]) mirror([0,1,0]) rotate([0,0,180]) extension_part(ext_left);
-            translate([0, y1, 0])                 rotate([0,0,180]) extension_part(ext_left);
-            translate([-ext_left, y0, 0]) cube([rail_w, row_h(j), rail_h]);
+    if (extL > 0)                                       // left edge (X = 0), outward -X
+        for (j = [0 : s_nrows(s) - 1]) if (cell_at(s, 0, j)) {
+            y0 = j * pitch; y1 = y0 + row_h(s, j);
+            translate([0, y0, 0]) mirror([0,1,0]) rotate([0,0,180]) extension_part(extL);
+            translate([0, y1, 0])                 rotate([0,0,180]) extension_part(extL);
+            translate([-extL, y0, 0]) cube([rail_w, row_h(s, j), rail_h]);
         }
 
-    if (ext_right > 0)                                  // right edge (X = W), outward +X
-        for (j = [0 : nrows - 1]) if (cell_at(ncols - 1, j)) {
-            y0 = j * pitch; y1 = y0 + row_h(j);
-            translate([W, y0, 0])                 extension_part(ext_right);
-            translate([W, y1, 0]) mirror([0,1,0]) extension_part(ext_right);
-            translate([W + ext_right - rail_w, y0, 0]) cube([rail_w, row_h(j), rail_h]);
+    if (extR > 0)                                       // right edge (X = W), outward +X
+        for (j = [0 : s_nrows(s) - 1]) if (cell_at(s, s_ncols(s) - 1, j)) {
+            y0 = j * pitch; y1 = y0 + row_h(s, j);
+            translate([W, y0, 0])                 extension_part(extR);
+            translate([W, y1, 0]) mirror([0,1,0]) extension_part(extR);
+            translate([W + extR - rail_w, y0, 0]) cube([rail_w, row_h(s, j), rail_h]);
         }
 }
 
-// Total outer footprint, including any drawer spacers. Printed to the Console
-// (View -> Console) so you can size it against your drawer before exporting.
-total_w = plate_w() + ext_left + ext_right;
-total_d = plate_h() + ext_front + ext_back;
-echo(str("==> Width: ", total_w, " mm"));
-echo(str("==> Depth: ", total_d, " mm"));
+// The whole assembly for one plate spec. Optionally shifted (below) so its X/Y
+// footprint (plate plus any asymmetric spacers) is centered on the origin; Z is
+// left sitting on the bed.
+module assembly(s) { grid(s); spacers(s); }
 
-// Custom Shape sanity notes (View -> Console).
-for (j = [0 : nrows - 1])
-    if (cuts_left[j] != cutL(j) || cuts_right[j] != cutR(j))
-        echo(str("NOTE: Row ", j + 1, " cuts clamped to keep at least one square."));
-if (nrows < 10)
-    for (j = [nrows : 9])
-        if (cuts_left[j] > 0 || cuts_right[j] > 0)
-            echo(str("NOTE: Row ", j + 1, " cuts ignored - the grid only has ", nrows, " rows."));
-// Adjacent rows whose surviving spans do not overlap leave the plate in two pieces.
-if (nrows > 1)
-    for (j = [0 : nrows - 2])
-        if (cutL(j) >= ncols - cutR(j + 1) || cutL(j + 1) >= ncols - cutR(j))
-            echo(str("WARNING: Rows ", j + 1, " and ", j + 2,
-                     " do not overlap - the plate will be disconnected."));
+// ------------------------------------------------------------
+// Manual mode: one plate built straight from the Customizer settings.
+cuts_left  = [row_1_left, row_2_left, row_3_left, row_4_left, row_5_left,
+              row_6_left, row_7_left, row_8_left, row_9_left, row_10_left];
+cuts_right = [row_1_right, row_2_right, row_3_right, row_4_right, row_5_right,
+              row_6_right, row_7_right, row_8_right, row_9_right, row_10_right];
+manual_spec = spec(columns, rows, ext_front, ext_back, ext_left, ext_right,
+                   cuts_left, cuts_right);
 
-// The whole assembly. Optionally shifted so its X/Y footprint (plate plus any
-// asymmetric spacers) is centered on the origin; Z is left sitting on the bed.
-module assembly() { grid(); spacers(); }
+// ------------------------------------------------------------
+// Auto Baseplates solver. Active when both cover sizes are set. The grid is the
+// largest half-pitch multiple that fits inside the cover area; the leftover width
+// splits evenly into the left and right spacers and the leftover depth all goes
+// to the back spacer, so the assembled footprint is exactly cover_width x
+// cover_depth. The grid is then chunked into plates that each fit the printer.
+auto_mode = cover_width > 0 && cover_depth > 0;
 
+// Printer id -> printable area [width, depth] in mm.
+bed_sizes = [
+    ["a1_mini", [180, 180]],
+    ["a1",      [256, 256]], ["p1p", [256, 256]], ["p1s", [256, 256]],
+    ["p2s",     [256, 256]], ["x1c", [256, 256]], ["x1e", [256, 256]],
+    ["x2d",     [256, 256]],
+    ["h2s",     [340, 320]], ["h2d", [350, 320]],
+];
+bed = printer == "custom" ? [custom_print_width, custom_print_depth]
+                          : bed_sizes[search([printer], bed_sizes)[0]][1];
+
+// Grid size in (possibly fractional) cells, and the leftover slack in mm.
+auto_cols = floor(cover_width / (pitch / 2)) / 2;
+auto_rows = floor(cover_depth / (pitch / 2)) / 2;
+slack_w   = cover_width - auto_cols * pitch;
+slack_d   = cover_depth - auto_rows * pitch;
+
+// Chunk `total` cells into per-plate cell counts, scanning from the lead edge.
+// `lead`/`tail` are the spacer lengths on the two outermost plates; every plate's
+// printed footprint (cells * pitch + its spacers) must fit in `avail`. Plates take
+// whole cells only, except the grid's trailing half cell, which (like the tail
+// spacer) rides along in the last plate.
+function tile_split(total, avail, lead, tail) =
+    total * pitch + lead + tail <= avail
+        ? [total]
+        : let (n = min(floor((avail - lead) / pitch), ceil(total) - 1))
+          assert(n >= 1, "Printable area too small for one grid cell plus its edge spacer - pick a bigger printer or a smaller pitch.")
+          concat([n], tile_split(total - n, avail, 0, tail));
+
+col_spans = auto_mode ? tile_split(auto_cols, bed[0], slack_w / 2, slack_w / 2) : [];
+row_spans = auto_mode ? tile_split(auto_rows, bed[1], 0, slack_d) : [];
+
+// mm position of plate k in the assembled plan: the cells of all plates before it.
+function tile_pos(spans, k) = k <= 0 ? 0 : spans[k - 1] * pitch + tile_pos(spans, k - 1);
+
+// The spec for the plate at column ci, row ri of the plan: spacers only on its
+// outward-facing edges (interior plate-to-plate edges stay exposed, so Beam+
+// puts its interlocking corners there automatically), and no Custom Shape cuts.
+function tile_spec(ci, ri) = spec(
+    col_spans[ci], row_spans[ri],
+    0,                                                 // front: slack all went to the back
+    ri == len(row_spans) - 1 ? slack_d     : 0,
+    ci == 0                  ? slack_w / 2 : 0,
+    ci == len(col_spans) - 1 ? slack_w / 2 : 0,
+    [], []);
+
+// Every plate of the plan, laid out in assembled positions plus tile_gap between
+// plates — the gap keeps the meshes separate so the slicer can split the export
+// into one object per plate ("Split to Objects" in Bambu Studio / Orca).
+module auto_layout() {
+    for (ci = [0 : len(col_spans) - 1], ri = [0 : len(row_spans) - 1])
+        translate([tile_pos(col_spans, ci) + ci * tile_gap,
+                   tile_pos(row_spans, ri) + ri * tile_gap, 0])
+            assembly(tile_spec(ci, ri));
+}
+
+// ------------------------------------------------------------
+// Console notes (View -> Console).
+if (auto_mode) {
+    assert(auto_cols >= 0.5 && auto_rows >= 0.5,
+           "Cover area is smaller than half a grid cell - increase cover sizes or reduce the pitch.");
+    echo(str("==> Auto Baseplates: covering ", cover_width, " x ", cover_depth, " mm (",
+             auto_cols, " x ", auto_rows, " squares) with ",
+             len(col_spans), " x ", len(row_spans), " = ",
+             len(col_spans) * len(row_spans), " plates"));
+    echo(str("==> Slack: ", slack_w / 2, " mm left + ", slack_w / 2,
+             " mm right, ", slack_d, " mm back (spacers)"));
+    for (ci = [0 : len(col_spans) - 1])
+        echo(str("==> Plate column ", ci + 1, ": ", col_spans[ci], " squares wide (",
+                 col_spans[ci] * pitch
+                     + (ci == 0 ? slack_w / 2 : 0)
+                     + (ci == len(col_spans) - 1 ? slack_w / 2 : 0),
+                 " mm printed)"));
+    for (ri = [0 : len(row_spans) - 1])
+        echo(str("==> Plate row ", ri + 1, ": ", row_spans[ri], " squares deep (",
+                 row_spans[ri] * pitch + (ri == len(row_spans) - 1 ? slack_d : 0),
+                 " mm printed)"));
+    echo("NOTE: Auto Baseplates is active - Grid, Drawer Spacers and Custom Shape settings are ignored.");
+} else {
+    // Total outer footprint, including any drawer spacers, so you can size it
+    // against your drawer before exporting.
+    echo(str("==> Width: ", plate_w(manual_spec) + ext_left + ext_right, " mm"));
+    echo(str("==> Depth: ", plate_h(manual_spec) + ext_front + ext_back, " mm"));
+
+    // Custom Shape sanity notes.
+    nrows = s_nrows(manual_spec); ncols = s_ncols(manual_spec);
+    for (j = [0 : nrows - 1])
+        if (cuts_left[j] != cutL(manual_spec, j) || cuts_right[j] != cutR(manual_spec, j))
+            echo(str("NOTE: Row ", j + 1, " cuts clamped to keep at least one square."));
+    if (nrows < 10)
+        for (j = [nrows : 9])
+            if (cuts_left[j] > 0 || cuts_right[j] > 0)
+                echo(str("NOTE: Row ", j + 1, " cuts ignored - the grid only has ", nrows, " rows."));
+    // Adjacent rows whose surviving spans do not overlap leave the plate in two pieces.
+    if (nrows > 1)
+        for (j = [0 : nrows - 2])
+            if (cutL(manual_spec, j) >= ncols - cutR(manual_spec, j + 1) ||
+                cutL(manual_spec, j + 1) >= ncols - cutR(manual_spec, j))
+                echo(str("WARNING: Rows ", j + 1, " and ", j + 2,
+                         " do not overlap - the plate will be disconnected."));
+}
+
+// ------------------------------------------------------------
+// Build it. Centering shifts the X/Y footprint onto the origin — the whole plan
+// (including gaps) in auto mode, the single plate in manual mode.
 color(preview_color) {
-    if (centered)
-        translate([(ext_left - ext_right - plate_w()) / 2,
-                   (ext_front - ext_back - plate_h()) / 2, 0])
-            assembly();
-    else
-        assembly();
+    if (auto_mode) {
+        if (centered)
+            translate([slack_w / 2 - (cover_width + (len(col_spans) - 1) * tile_gap) / 2,
+                       -(cover_depth + (len(row_spans) - 1) * tile_gap) / 2, 0])
+                auto_layout();
+        else
+            auto_layout();
+    } else {
+        if (centered)
+            translate([(ext_left - ext_right - plate_w(manual_spec)) / 2,
+                       (ext_front - ext_back - plate_h(manual_spec)) / 2, 0])
+                assembly(manual_spec);
+        else
+            assembly(manual_spec);
+    }
 }
 
 // ============================================================
