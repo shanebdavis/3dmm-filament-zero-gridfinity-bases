@@ -12,13 +12,13 @@
 
 /* [Model] */
 // Which base style to build
-model = "net_light"; // [net_light:Net+, net_heavy:Tape+, net_rigid:Beam+, rigid:Beam]
+model = "rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam+]
 
 /* [Grid] */
 // Squares wide
-columns = 2; // [1:0.5:10]
-// Squares deep
-rows = 2;    // [1:0.5:10]
+columns = 4; // [1:0.5:10]
+// Squares long
+rows = 4;    // [1:0.5:10]
 
 /* [Drawer Spacers] */
 // Outward spacer on each side (mm) so the plate sits flush in a drawer. 0 = none.
