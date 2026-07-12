@@ -93,6 +93,13 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
 2. Open the Customizer: **Window → Customizer**.
 3. Set:
    - **Model** — Net+, Tape+, Beam+, or Beam
+   - **Sparse** — merge cells up to double width/depth and drop the internal walls
+     between them: roughly **half the filament and print time** on large areas.
+     Corners stay at standard Gridfinity positions (nothing is scaled — only the
+     connectors between corners stretch), so bins seat and plates tile exactly as
+     usual, just with less support under them. Works per plate in Auto Baseplates
+     too; half cells are never merged, and it's ignored when Custom Shape cuts
+     are set.
    - **Columns** / **Rows** — grid size in 42 mm cells, in 0.5 steps from 1 to 20.5.
      A `.5` appends a fully-enclosed half-cell (21 mm) column and/or row, for fitting
      odd drawer sizes (e.g. `2.5` = two full cells plus a half)

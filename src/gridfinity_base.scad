@@ -13,6 +13,8 @@
 /* [Model] */
 // Which base style to build
 model = "rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam+]
+// Sparse plates: merge cells up to double width/depth and delete the internal walls between them - a big filament and print-time saver on large areas. Corners stay at standard Gridfinity positions so bins seat and tile normally, just with less support under them. Half cells are never merged; ignored when Custom Shape cuts are set.
+sparse = false;
 
 /* [Grid] */
 // Squares wide
@@ -364,10 +366,102 @@ function row_h(s, j) = (s_half_h(s) && j == s_nrows(s) - 1) ? pitch / 2 : pitch;
 // Tile every surviving cell. Cell (i, j) sits at [i, j] * pitch (only the
 // trailing column/row can be half-size, so origins stay on the pitch grid).
 module grid(s) {
-    for (i = [0 : s_ncols(s) - 1], j = [0 : s_nrows(s) - 1])
-        if (cell_at(s, i, j))
-            translate([i * pitch, j * pitch, 0]) rcell(s, i, j);
+    if (sparse_on(s))
+        for (c = sparse_cells(s)) cell_rect(s, c[0], c[1], c[2], c[3]);
+    else
+        for (i = [0 : s_ncols(s) - 1], j = [0 : s_nrows(s) - 1])
+            if (cell_at(s, i, j))
+                translate([i * pitch, j * pitch, 0]) rcell(s, i, j);
 }
+
+// ------------------------------------------------------------
+// Sparse plates. Merge adjacent full-size cells into bigger ones (up to double
+// width x double depth) and simply don't draw the walls that used to sit between
+// them. Nothing is scaled: a merged cell is rendered exactly like a standard cell
+// — four standard corners on standard pitch-grid positions — with only the
+// connectors stretched to span the wider gap. The result is the ordinary full
+// plate minus internal material, so bins seat and plates tile exactly as before.
+//
+// Merging is per-plate only (the Auto Baseplates layout is untouched; each tile
+// is independently sparse inside its own full perimeter) and only for full
+// rectangles: Custom Shape cuts turn sparse off (see the console note). Half
+// cells are never merged.
+function sparse_eligible(s) = len([for (j = [0 : s_nrows(s) - 1])
+                                   if (cutL(s, j) > 0 || cutR(s, j) > 0) 1]) == 0;
+function sparse_on(s) = sparse && sparse_eligible(s);
+
+// The merged cell list, [x, y, w, h] in mm. Deterministic front-left scan of the
+// full-size cells (half cells live on the right/back and are appended as-is):
+//   phase 1 - every 2x2 quad of cells becomes one double-width, double-depth cell
+//             (quads anchor on even cell indices, scanning from the front-left);
+//   phase 2 - a leftover right column pairs front-to-back into 1x2s, a leftover
+//             back row pairs left-to-right into 2x1s; when both are leftover,
+//             the far back-right cell stays a standard 1x1.
+function sparse_cells(s) =
+    let (fc = floor(s_cols(s)), fr = floor(s_rows(s)),
+         qc = floor(fc / 2),    qr = floor(fr / 2),
+         lc = fc % 2 == 1,      lr = fr % 2 == 1)
+    concat(
+        qc > 0 && qr > 0 ?
+            [for (i = [0 : qc - 1], j = [0 : qr - 1])
+                [2 * i * pitch, 2 * j * pitch, 2 * pitch, 2 * pitch]] : [],
+        lc && qr > 0 ?
+            [for (j = [0 : qr - 1]) [(fc - 1) * pitch, 2 * j * pitch, pitch, 2 * pitch]] : [],
+        lr && qc > 0 ?
+            [for (i = [0 : qc - 1]) [2 * i * pitch, (fr - 1) * pitch, 2 * pitch, pitch]] : [],
+        lc && lr ? [[(fc - 1) * pitch, (fr - 1) * pitch, pitch, pitch]] : [],
+        s_half_w(s) ? [for (j = [0 : fr - 1]) [fc * pitch, j * pitch, pitch / 2, pitch]] : [],
+        s_half_h(s) ? [for (i = [0 : fc - 1]) [i * pitch, fr * pitch, pitch, pitch / 2]] : [],
+        s_half_w(s) && s_half_h(s) ? [[fc * pitch, fr * pitch, pitch / 2, pitch / 2]] : []
+    );
+
+// One cell of the sparse list: rcell reduced to the no-cuts case and keyed off
+// the record's own geometry (position + size against the plate rim) instead of
+// grid indices — post-merge cells don't line up with rows and columns. Corner
+// roles work exactly as in rcell: a corner edge is on the boundary iff it lies
+// on the plate rim (no cuts, so no jagged steps and no open intersections), and
+// a spacered rim side keeps its plain corner while exposed sides get Solid+.
+module cell_rect(s, x, y, w, h) {
+    cs = corner_size;
+    f = y < 0.001;  b = y + h > plate_h(s) - 0.001;
+    l = x < 0.001;  r = x + w > plate_w(s) - 0.001;
+    fb = f && (s_spacer_front(s) > 0);   fe = f && !fb;
+    bb = b && (s_spacer_back(s)  > 0);   be = b && !bb;
+    lb = l && (s_spacer_left(s)  > 0);   le = l && !lb;
+    rb = r && (s_spacer_right(s) > 0);   re = r && !rb;
+    translate([x, y, 0]) {
+        translate([0, 0, 0])                     corner_part(fe || le, f || l, f && l, l && !f, false);
+        translate([w, 0, 0]) rotate([0, 0,  90]) corner_part(fe || re, f || r, f && r, f && !r, false);
+        translate([w, h, 0]) rotate([0, 0, 180]) corner_part(be || re, b || r, b && r, r && !b, false);
+        translate([0, h, 0]) rotate([0, 0, 270]) corner_part(be || le, b || l, b && l, b && !l, false);
+        translate([cs, 0, 0])                  connector_x(w - 2 * cs);
+        translate([cs, h, 0]) mirror([0,1,0])  connector_x(w - 2 * cs);
+        translate([0,  cs, 0])                 connector_y(h - 2 * cs);
+        translate([w,  cs, 0]) mirror([1,0,0]) connector_y(h - 2 * cs);
+    }
+}
+
+// Interior points where sparse cells' corners meet — the sparse counterpart of
+// the full grid's interior crossings. Four corners meet where four cells share a
+// point; two corners meet where a pair of (half) cells T-junctions against a
+// merged neighbour's edge, and there the merged cell's flat connector wall seals
+// the corners' relief notches into pockets just like a fourth corner would. So
+// every interior meeting point gets the standard vent pattern — the same vents
+// the full plate has at those nodes; on sides with no arm the channels cut only
+// air. Rim points need none (perimeter corners have no relief notches).
+function cell_corner_pts(cells) =
+    [for (c = cells) each [[c[0], c[1]], [c[0] + c[2], c[1]],
+                           [c[0], c[1] + c[3]], [c[0] + c[2], c[1] + c[3]]]];
+function pts_eq(a, b) = abs(a[0] - b[0]) < 0.01 && abs(a[1] - b[1]) < 0.01;
+function pt_count(pts, p) = len([for (q = pts) if (pts_eq(q, p)) 1]);
+function sparse_crossings(s) =
+    let (pts = cell_corner_pts(sparse_cells(s)))
+    [for (k = [0 : len(pts) - 1])
+        if (pts[k][0] > 0.001 && pts[k][0] < plate_w(s) - 0.001 &&
+            pts[k][1] > 0.001 && pts[k][1] < plate_h(s) - 0.001 &&
+            pt_count(pts, pts[k]) >= 2 &&
+            len([for (m = [0 : k]) if (m < k && pts_eq(pts[m], pts[k])) 1]) == 0)
+        pts[k]];
 
 // ------------------------------------------------------------
 // Cavity vents. At every interior 4-cell crossing, the Solid corners' relief
@@ -382,15 +476,21 @@ module grid(s) {
 // shell and the cavity survives splitting. The channels are far below one line
 // width, so slicers drop them and the printed plate is unchanged.
 module crossing_vents(s) {
-    if (s_ncols(s) > 1 && s_nrows(s) > 1)
+    if (sparse_on(s))
+        for (p = sparse_crossings(s))
+            translate([p[0], p[1], 0]) node_vents();
+    else if (s_ncols(s) > 1 && s_nrows(s) > 1)
         for (i = [1 : s_ncols(s) - 1], j = [1 : s_nrows(s) - 1])
             if (cell_at(s, i-1, j-1) && cell_at(s, i, j-1) &&
                 cell_at(s, i-1, j)   && cell_at(s, i, j))
-                translate([i * pitch, j * pitch, 0]) {
-                    translate([-0.1, -0.1, -0.1]) cube([0.2, 0.2, 0.8]);
-                    for (r = [0, 90, 180, 270]) rotate([0, 0, r])
-                        translate([11.9, -0.1, -0.1]) cube([0.1, 0.2, 0.8]);
-                }
+                translate([i * pitch, j * pitch, 0]) node_vents();
+}
+
+// The five vent channels for one crossing, centered on the crossing point.
+module node_vents() {
+    translate([-0.1, -0.1, -0.1]) cube([0.2, 0.2, 0.8]);
+    for (r = [0, 90, 180, 270]) rotate([0, 0, r])
+        translate([11.9, -0.1, -0.1]) cube([0.1, 0.2, 0.8]);
 }
 
 // ------------------------------------------------------------
@@ -587,6 +687,9 @@ if (auto_mode) {
     // against your drawer before exporting.
     echo(str("==> Width: ", plate_w(manual_spec) + spacer_left + spacer_right, " mm"));
     echo(str("==> Depth: ", plate_h(manual_spec) + spacer_front + spacer_back, " mm"));
+
+    if (sparse && !sparse_eligible(manual_spec))
+        echo("NOTE: Sparse ignored - it doesn't support Custom Shape cuts.");
 
     // Custom Shape sanity notes.
     nrows = s_nrows(manual_spec); ncols = s_ncols(manual_spec);
