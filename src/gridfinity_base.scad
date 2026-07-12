@@ -23,14 +23,14 @@ rows = 4;    // [1:0.5:10]
 /* [Drawer Spacers] */
 // Outward spacer on each side (mm) so the plate sits flush in a drawer. 0 = none.
 // Capped at 41 mm — past that, just add another Gridfinity cell instead.
-// Front is the side closest to you when you place the grid on a surface
-ext_front = 0; // [0:0.5:41]
-// Back is the side furthest from you
-ext_back  = 0; // [0:0.5:41]
-// Left will be to your left
-ext_left  = 0; // [0:0.5:41]
-// Right will be to your right
-ext_right = 0; // [0:0.5:41]
+// Front Spacer (mm)
+spacer_front = 0; // [0:0.5:41]
+// Left Spacer (mm)
+spacer_left  = 0; // [0:0.5:41]
+// Back Spacer (mm)
+spacer_back  = 0; // [0:0.5:41]
+// Right Spacer (mm)
+spacer_right = 0; // [0:0.5:41]
 
 /* [Custom Shape] */
 
@@ -75,7 +75,7 @@ row_10_left = 0; // [0:1:9]
 // Remove squares from row 10 right
 row_10_right = 0; // [0:1:9]
 
-/* [Auto Baseplates] */
+/* [Auto Baseplate Set Generation] */
 // Cover a whole area (a drawer, a shelf) with auto-sized plates: set BOTH cover sizes
 // non-zero and the solver fills the area with the largest grid that fits, splits it
 // into plates sized for your printer, and turns the leftover millimeters into edge
@@ -145,9 +145,10 @@ conn_h = (model == "rigid" || model == "net_rigid") ? 4.0 : 0.5;
 //                              perimeter wall, the other mates with the neighbouring cell)
 //   neither edge on boundary -> `inner` corner (fully interior, where four cells meet)
 // `outer` is true whenever at least one edge is on the boundary; `both` narrows that to a
-// true plate corner. Solid+ adds the `plus` role: where the on-boundary edge is *exposed*
+// true plate corner. Solid+ adds the `plus` role: where any on-boundary edge is *exposed*
 // (no drawer spacer) it mates with a neighbouring print, so it swaps in the special Solid+
-// outer/innerouter mesh; a spacered boundary edge falls back to the plain Solid corner.
+// outer/innerouter mesh. Only when every boundary edge at the corner is spacered (extenders
+// run in each boundary direction) does it fall back to the plain Solid corner.
 //
 // The InnerOuter mesh is asymmetric — its outer (perimeter) edge runs along local +X and
 // its inner (mating) edge along local +Y. rcell places every corner so local +X points at
@@ -186,11 +187,17 @@ module diag(s) {
 }
 
 // ------------------------------------------------------------
-// Drawer-spacer extension. The source STL is a 5mm-long triangular prism authored at
-// [295..300, 250..253.5, 0..3.5]. Its cross-section (in Y-Z) is a tall 3.5mm "ridge"
-// face at Y=250 that tapers down to ~0.5mm at Y=253.5 — the chamfered triangle that
-// lines up with a corner. The prism axis (X) is the direction it sticks outward.
-ext_base_len = 5;   // authored prism length (mm); we scale this to the requested distance
+// Drawer-spacer extension, V2: two source STLs. The Extender is a 10mm-long prism
+// authored at [285..295, 230..232.15, 0..3] whose cross-section is the same L-shaped
+// interlock profile as the beam connector (a 0.5mm-thick ridge wall rising to 3mm at
+// the mating face, plus a 0.5mm-tall foot reaching out to 2.15mm) — it stretches the
+// full extension distance. The End is a 1mm-thick cap with the old solid
+// chamfered-triangle profile, authored at [299..300, 230..232.15, 0..3], placed at
+// the very tip so the taper still lines up with a corner. Splitting the solid prism
+// into wall + cap saves filament and makes extensions interlock-compatible. The prism
+// axis (X) is the direction it sticks outward.
+ext_base_len = 10;  // authored Extender prism length (mm); scaled to the requested distance
+ext_end_len  = 1;   // authored End cap thickness (mm); never scaled
 
 // Spacer tie-rail: a beam run along the far (outer) edge of the spacers to lock the
 // otherwise-cantilevered prisms together. Always the Net Heavy connector profile
@@ -198,16 +205,24 @@ ext_base_len = 5;   // authored prism length (mm); we scale this to the requeste
 rail_w = 2.15;
 rail_h = 0.5;
 
-// One extension prism, normalized so the mating face is at X=0 and the tall ridge edge
-// is at Y=0, tapering toward +Y and sitting on the bed (Z 0..3.5). Stretched along +X
-// (outward) to length L, with a tiny inward overlap so it welds cleanly to the plate.
+// One extension prism, normalized so the mating face is at X=0 and the tall ridge wall
+// is at Y=0, foot toward +Y, sitting on the bed (Z 0..3). The Extender is stretched
+// along +X (outward) to the full length L, with a tiny inward overlap so it welds
+// cleanly to the plate; the 1mm End cap sits flush at the outer tip (its solid taper
+// fully covers the L-profile there, so the two simply union). Short extensions skip
+// the cap — the bare wall is stiff enough below 5mm.
+ext_cap_min = 5;    // shortest extension (mm) that gets an End cap
 module extension_part(L) {
     eps = 0.02;
-    if (L > 0)
+    if (L > 0) {
         translate([-eps, 0, 0])
             scale([(L + eps) / ext_base_len, 1, 1])
-                translate([-295, -250, 0])
-                    mesh_extension();
+                translate([-285, -230, 0])
+                    mesh_extension_extender();
+        if (L >= ext_cap_min)
+            translate([L - ext_end_len - 299, -230, 0])
+                mesh_extension_end();
+    }
 }
 
 // The "Net Beam" model pairs the Net Heavy corner with this taller beam connector: an
@@ -250,27 +265,28 @@ module rcell(s, i, j) {
     // always exposed, never blocked.
     f = !cell_at(s, i, j - 1);   b = !cell_at(s, i, j + 1);
     l = !cell_at(s, i - 1, j);   r = !cell_at(s, i + 1, j);
-    fb = f && (j == 0)              && (s_ext_front(s) > 0);   fe = f && !fb;
-    bb = b && (j == s_nrows(s) - 1) && (s_ext_back(s)  > 0);   be = b && !bb;
-    lb = l && (i == 0)              && (s_ext_left(s)  > 0);   le = l && !lb;
-    rb = r && (i == s_ncols(s) - 1) && (s_ext_right(s) > 0);   re = r && !rb;
+    fb = f && (j == 0)              && (s_spacer_front(s) > 0);   fe = f && !fb;
+    bb = b && (j == s_nrows(s) - 1) && (s_spacer_back(s)  > 0);   be = b && !bb;
+    lb = l && (i == 0)              && (s_spacer_left(s)  > 0);   le = l && !lb;
+    rb = r && (i == s_ncols(s) - 1) && (s_spacer_right(s) > 0);   re = r && !rb;
     // Diagonal neighbours: a corner with both adjacent squares present but the diagonal
     // square cut away is a re-entrant plate corner ("open" intersection) — see corner_part.
     dfl = !cell_at(s, i - 1, j - 1);   dfr = !cell_at(s, i + 1, j - 1);
     dbl = !cell_at(s, i - 1, j + 1);   dbr = !cell_at(s, i + 1, j + 1);
     // corner_part(plus, outer, both, swap, open):
-    //   plus  = the on-boundary edge is exposed AND neither edge is spacered (Solid+ mate);
-    //           a boundary corner with a spacer in either direction falls back to plain Solid.
+    //   plus  = at least one on-boundary edge is exposed (a Solid+ mate). Only a corner
+    //           whose boundary edges are ALL spacered (extenders in every boundary
+    //           direction) falls back to the plain Solid corner.
     //   outer = at least one edge on the boundary; both = both edges on it (a true plate corner).
     //   swap  = the lone boundary edge is the *other* one than this corner's canonical (local
     //           +X) side, so the asymmetric InnerOuter mesh must be mirrored across its diagonal.
     //           Canonical boundary side per corner: front-left->front, front-right->right,
     //           back-right->back, back-left->left.
     //   open  = both adjacent squares present but the diagonal square is missing.
-    translate([0, 0, 0])                     corner_part((fe || le) && !(fb || lb), f || l, f && l, l && !f, !f && !l && dfl);
-    translate([w, 0, 0]) rotate([0, 0,  90]) corner_part((fe || re) && !(fb || rb), f || r, f && r, f && !r, !f && !r && dfr);
-    translate([w, h, 0]) rotate([0, 0, 180]) corner_part((be || re) && !(bb || rb), b || r, b && r, r && !b, !b && !r && dbr);
-    translate([0, h, 0]) rotate([0, 0, 270]) corner_part((be || le) && !(bb || lb), b || l, b && l, b && !l, !b && !l && dbl);
+    translate([0, 0, 0])                     corner_part(fe || le, f || l, f && l, l && !f, !f && !l && dfl);
+    translate([w, 0, 0]) rotate([0, 0,  90]) corner_part(fe || re, f || r, f && r, f && !r, !f && !r && dfr);
+    translate([w, h, 0]) rotate([0, 0, 180]) corner_part(be || re, b || r, b && r, r && !b, !b && !r && dbr);
+    translate([0, h, 0]) rotate([0, 0, 270]) corner_part(be || le, b || l, b && l, b && !l, !b && !l && dbl);
     // edges, flush to the outer rim and extending inward. Mirror the top and right so
     // the (asymmetric) beam web lands on the outer rim, matching the bottom and left.
     translate([cs, 0, 0])                  connector_x(w - 2 * cs);  // bottom
@@ -299,18 +315,18 @@ module rcell(s, i, j) {
 // Plate spec. One generator builds both the manual plate and every Auto Baseplates
 // tile, so all per-plate inputs travel together as a single list (OpenSCAD has no
 // structs) and everything below takes the spec `s` as its first argument:
-//   [cols, rows, ext_front, ext_back, ext_left, ext_right, cuts_left, cuts_right]
+//   [cols, rows, spacer_front, spacer_back, spacer_left, spacer_right, cuts_left, cuts_right]
 // cols/rows may end in .5 (trailing half column/row); the cuts are per-row Custom
 // Shape lists, row 1 (front) first — entries beyond the list's length count as 0,
 // so an empty list means "no cuts".
-function spec(cols, rows, extF, extB, extL, extR, cutsL, cutsR) =
-    [cols, rows, extF, extB, extL, extR, cutsL, cutsR];
+function spec(cols, rows, spacerF, spacerB, spacerL, spacerR, cutsL, cutsR) =
+    [cols, rows, spacerF, spacerB, spacerL, spacerR, cutsL, cutsR];
 function s_cols(s)       = s[0];
 function s_rows(s)       = s[1];
-function s_ext_front(s)  = s[2];
-function s_ext_back(s)   = s[3];
-function s_ext_left(s)   = s[4];
-function s_ext_right(s)  = s[5];
+function s_spacer_front(s)  = s[2];
+function s_spacer_back(s)   = s[3];
+function s_spacer_left(s)   = s[4];
+function s_spacer_right(s)  = s[5];
 function s_cuts_left(s)  = s[6];
 function s_cuts_right(s) = s[7];
 
@@ -369,39 +385,39 @@ function plate_h(s) = floor(s_rows(s)) * pitch + (s_half_h(s) ? pitch / 2 : 0);
 // prisms and the rail stops with them.
 module spacers(s) {
     W = plate_w(s); H = plate_h(s);
-    extF = s_ext_front(s); extB = s_ext_back(s);
-    extL = s_ext_left(s);  extR = s_ext_right(s);
+    spacerF = s_spacer_front(s); spacerB = s_spacer_back(s);
+    spacerL = s_spacer_left(s);  spacerR = s_spacer_right(s);
 
-    if (extF > 0)                                       // front edge (Y = 0), outward -Y
+    if (spacerF > 0)                                       // front edge (Y = 0), outward -Y
         for (i = [0 : s_ncols(s) - 1]) if (cell_at(s, i, 0)) {
             x0 = i * pitch; x1 = x0 + col_w(s, i);
-            translate([x0, 0, 0])                 rotate([0,0,-90]) extension_part(extF);
-            translate([x1, 0, 0]) mirror([1,0,0]) rotate([0,0,-90]) extension_part(extF);
-            translate([x0, -extF, 0]) cube([col_w(s, i), rail_w, rail_h]);   // tie-rail at the tips
+            translate([x0, 0, 0])                 rotate([0,0,-90]) extension_part(spacerF);
+            translate([x1, 0, 0]) mirror([1,0,0]) rotate([0,0,-90]) extension_part(spacerF);
+            translate([x0, -spacerF, 0]) cube([col_w(s, i), rail_w, rail_h]);   // tie-rail at the tips
         }
 
-    if (extB > 0)                                       // back edge (Y = H), outward +Y
+    if (spacerB > 0)                                       // back edge (Y = H), outward +Y
         for (i = [0 : s_ncols(s) - 1]) if (cell_at(s, i, s_nrows(s) - 1)) {
             x0 = i * pitch; x1 = x0 + col_w(s, i);
-            translate([x0, H, 0]) mirror([1,0,0]) rotate([0,0, 90]) extension_part(extB);
-            translate([x1, H, 0])                 rotate([0,0, 90]) extension_part(extB);
-            translate([x0, H + extB - rail_w, 0]) cube([col_w(s, i), rail_w, rail_h]);
+            translate([x0, H, 0]) mirror([1,0,0]) rotate([0,0, 90]) extension_part(spacerB);
+            translate([x1, H, 0])                 rotate([0,0, 90]) extension_part(spacerB);
+            translate([x0, H + spacerB - rail_w, 0]) cube([col_w(s, i), rail_w, rail_h]);
         }
 
-    if (extL > 0)                                       // left edge (X = 0), outward -X
+    if (spacerL > 0)                                       // left edge (X = 0), outward -X
         for (j = [0 : s_nrows(s) - 1]) if (cell_at(s, 0, j)) {
             y0 = j * pitch; y1 = y0 + row_h(s, j);
-            translate([0, y0, 0]) mirror([0,1,0]) rotate([0,0,180]) extension_part(extL);
-            translate([0, y1, 0])                 rotate([0,0,180]) extension_part(extL);
-            translate([-extL, y0, 0]) cube([rail_w, row_h(s, j), rail_h]);
+            translate([0, y0, 0]) mirror([0,1,0]) rotate([0,0,180]) extension_part(spacerL);
+            translate([0, y1, 0])                 rotate([0,0,180]) extension_part(spacerL);
+            translate([-spacerL, y0, 0]) cube([rail_w, row_h(s, j), rail_h]);
         }
 
-    if (extR > 0)                                       // right edge (X = W), outward +X
+    if (spacerR > 0)                                       // right edge (X = W), outward +X
         for (j = [0 : s_nrows(s) - 1]) if (cell_at(s, s_ncols(s) - 1, j)) {
             y0 = j * pitch; y1 = y0 + row_h(s, j);
-            translate([W, y0, 0])                 extension_part(extR);
-            translate([W, y1, 0]) mirror([0,1,0]) extension_part(extR);
-            translate([W + extR - rail_w, y0, 0]) cube([rail_w, row_h(s, j), rail_h]);
+            translate([W, y0, 0])                 extension_part(spacerR);
+            translate([W, y1, 0]) mirror([0,1,0]) extension_part(spacerR);
+            translate([W + spacerR - rail_w, y0, 0]) cube([rail_w, row_h(s, j), rail_h]);
         }
 }
 
@@ -416,7 +432,7 @@ cuts_left  = [row_1_left, row_2_left, row_3_left, row_4_left, row_5_left,
               row_6_left, row_7_left, row_8_left, row_9_left, row_10_left];
 cuts_right = [row_1_right, row_2_right, row_3_right, row_4_right, row_5_right,
               row_6_right, row_7_right, row_8_right, row_9_right, row_10_right];
-manual_spec = spec(columns, rows, ext_front, ext_back, ext_left, ext_right,
+manual_spec = spec(columns, rows, spacer_front, spacer_back, spacer_left, spacer_right,
                    cuts_left, cuts_right);
 
 // ------------------------------------------------------------
@@ -546,8 +562,8 @@ if (auto_mode) {
 } else {
     // Total outer footprint, including any drawer spacers, so you can size it
     // against your drawer before exporting.
-    echo(str("==> Width: ", plate_w(manual_spec) + ext_left + ext_right, " mm"));
-    echo(str("==> Depth: ", plate_h(manual_spec) + ext_front + ext_back, " mm"));
+    echo(str("==> Width: ", plate_w(manual_spec) + spacer_left + spacer_right, " mm"));
+    echo(str("==> Depth: ", plate_h(manual_spec) + spacer_front + spacer_back, " mm"));
 
     // Custom Shape sanity notes.
     nrows = s_nrows(manual_spec); ncols = s_ncols(manual_spec);
@@ -584,8 +600,8 @@ module assembly_view() {
             auto_layout();
     } else {
         if (centered)
-            translate([(ext_left - ext_right - plate_w(manual_spec)) / 2,
-                       (ext_front - ext_back - plate_h(manual_spec)) / 2, 0])
+            translate([(spacer_left - spacer_right - plate_w(manual_spec)) / 2,
+                       (spacer_front - spacer_back - plate_h(manual_spec)) / 2, 0])
             assembly(manual_spec);
         else
             assembly(manual_spec);
@@ -604,8 +620,8 @@ module plate(k) {
         s = auto_mode ? tile_spec((k - 1) % len(col_spans),
                                   floor((k - 1) / len(col_spans)))
                       : manual_spec;
-        translate([(s_ext_left(s) - s_ext_right(s) - plate_w(s)) / 2,
-                   (s_ext_front(s) - s_ext_back(s) - plate_h(s)) / 2, 0])
+        translate([(s_spacer_left(s) - s_spacer_right(s) - plate_w(s)) / 2,
+                   (s_spacer_front(s) - s_spacer_back(s) - plate_h(s)) / 2, 0])
             assembly(s);
     }
 }
@@ -687,10 +703,17 @@ module mesh_corner_rigid_outer() {
     faces=[[0,2,1], [2,0,3], [4,1,2], [1,4,5], [5,7,6], [7,5,4], [8,7,9], [7,8,6], [6,10,5], [1,10,0], [10,1,5], [10,6,8], [10,11,0], [11,10,12], [10,13,12], [13,10,8], [14,12,13], [12,14,15], [8,14,13], [14,8,9], [2,16,4], [7,16,9], [16,7,4], [16,2,3], [16,17,15], [17,16,3], [16,14,9], [14,16,15], [11,15,17], [15,11,12], [3,11,17], [11,3,0]], convexity=6);
 }
 
-// source-stl: AT Extension.stl
-module mesh_extension() {
+// source-stl: AT Extension V2 Extender.stl
+module mesh_extension_extender() {
   polyhedron(
-    points=[[295,252.15,0], [300,252.15,0], [300,250,0], [295,250,0], [300,250,3], [295,250,3], [295,250.5,3], [295,252.15,0.5], [300,252.15,0.5], [300,250.5,3]],
+    points=[[285,230,0], [285,232.15,0], [295,232.15,0], [295,230,0], [285,232.15,0.5], [295,232.15,0.5], [295,230,3], [285,230,3], [285,230.5,0.5], [285,230.5,3], [295,230.5,0.5], [295,230.5,3]],
+    faces=[[0,2,1], [2,0,3], [2,4,1], [4,2,5], [0,6,3], [6,0,7], [1,8,0], [7,8,9], [8,7,0], [8,1,4], [6,10,3], [2,10,5], [10,2,3], [10,6,11], [4,10,8], [10,4,5], [11,8,10], [8,11,9], [9,6,7], [6,9,11]], convexity=6);
+}
+
+// source-stl: AT Extension V2 End.stl
+module mesh_extension_end() {
+  polyhedron(
+    points=[[299,232.15,0], [300,232.15,0], [300,230,0], [299,230,0], [300,230,3], [299,230,3], [299,230.5,3], [299,232.15,0.5], [300,232.15,0.5], [300,230.5,3]],
     faces=[[0,2,1], [2,0,3], [3,4,2], [4,3,5], [3,6,5], [6,3,7], [7,3,0], [2,9,8], [2,8,1], [9,2,4], [5,9,4], [9,5,6], [6,8,9], [8,6,7], [7,1,8], [1,7,0]], convexity=6);
 }
 
