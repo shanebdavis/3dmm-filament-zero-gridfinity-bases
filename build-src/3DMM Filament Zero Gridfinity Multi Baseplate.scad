@@ -31,7 +31,7 @@ model = "rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam
 // 18x28mm front-left corner to the filament-cutter stopper (plates print full-depth,
 // nudged right of the corner), and the dual-nozzle H2/X2 machines are limited to one
 // nozzle's reach for a single color.
-printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), a2l:A2L (330x320), p1p:P1P (238x256 - cutter corner), p1s:P1S (238x256 - cutter corner), p2s:P2S (256x256), x1c:X1 Carbon (238x256 - cutter corner), x1e:X1E (238x256 - cutter corner), x2d:X2D (256x256), h2s:H2S (340x320), h2d:H2D (325x320 single color), h2d_pro:H2D Pro (325x320 single color), h2c:H2C (325x320 single color), custom:Custom (set size under Advanced)]
+printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 / P2S / X2D (256x256), p1s:P1P / P1S / X1C / X1E (238x256 - cutter corner), a2l:A2L (330x320), h2s:H2S (340x320), h2d:H2D / H2D Pro / H2C (325x320 single color), custom:Custom (set size under Advanced)]
 // Total width (mm) of the area to cover. 0 = off.
 cover_width = 400; // [0:1:2000]
 // Total depth (front-to-back, mm) of the area to cover. 0 = off.
@@ -561,12 +561,16 @@ auto_mode = cover_width > 0 && cover_depth > 0;
 //   - P1P/P1S/X1C/X1E: 256x256 bed minus an 18x28 front-left cutter-stopper corner.
 //     A full-depth 238-wide plate clears it when placed right of the corner. (The A1,
 //     A1 mini, P2S and X2D profiles have no excluded bed area.)
-//   - H2D/H2D Pro (350x320 bed) and H2C (330x320 bed): one nozzle only reaches 325
-//     of the bed width, and a single color prints from one nozzle.
+//   - H2D/H2D Pro (350x320 bed) and H2C (330x320 bed): the left nozzle reaches
+//     325 of the bed width, and a single color prints from one nozzle. The H2C's
+//     Vortek rack shrinks its bed and limits its right nozzle to 305, but its
+//     left nozzle still covers the same 325x320 single-color rectangle as H2D.
 //   - X2D: the left nozzle covers the full 256x256, so single color is unrestricted.
 // Each entry is [id, printable [w, d], printable-rectangle origin [x, y] on the
 // physical bed]. The origin documents the P1/X1 family's usable rectangle starting
-// at x = 18 (right of the cutter corner).
+// at x = 18 (right of the cutter corner). The Customizer picker groups printers
+// sharing a rectangle under one id; the extra ids stay here so -D overrides and
+// older saved configs keep working.
 bed_sizes = [
     ["a1_mini", [180, 180], [ 0, 0]],
     ["a1",      [256, 256], [ 0, 0]], ["a2l", [330, 320], [0, 0]],
@@ -611,8 +615,33 @@ function tile_split(total, avail, lead, tail) =
           assert(n >= 1, "Printable area too small for one grid cell plus its edge spacer - pick a bigger printer or a smaller pitch.")
           concat([n], tile_split(total - n, avail, 0, tail));
 
-col_spans = auto_mode ? tile_split(auto_cols, bed[0], asp_left, asp_right) : [];
-row_spans = auto_mode ? tile_split(auto_rows, bed[1], asp_front, asp_back) : [];
+// Like tile_split but just counts the plates, returning undef instead of
+// asserting when a chunk can't fit even one cell — safe for probing layouts
+// that may not fit at all.
+function tile_count(total, avail, lead, tail) =
+    total * pitch + lead + tail <= avail
+        ? 1
+        : let (n = min(floor((avail - lead) / pitch), ceil(total) - 1))
+          n < 1 ? undef
+                : let (rest = tile_count(total - n, avail, 0, tail))
+                  is_undef(rest) ? undef : 1 + rest;
+
+// Plates get auto-arranged in the slicer, which is free to rotate them, so the
+// bed's orientation relative to the cover area doesn't matter. Probe the split
+// with the printable rectangle both ways and keep the orientation that yields
+// fewer plates (ties keep the natural orientation).
+function plates_of(cw, rd) =
+    let (c = tile_count(auto_cols, cw, asp_left, asp_right),
+         r = tile_count(auto_rows, rd, asp_front, asp_back))
+    is_undef(c) || is_undef(r) ? undef : c * r;
+n_natural = plates_of(bed[0], bed[1]);
+n_rotated = plates_of(bed[1], bed[0]);
+bed_swap  = !is_undef(n_rotated) && (is_undef(n_natural) || n_rotated < n_natural);
+bed_w = bed_swap ? bed[1] : bed[0];
+bed_d = bed_swap ? bed[0] : bed[1];
+
+col_spans = auto_mode ? tile_split(auto_cols, bed_w, asp_left, asp_right) : [];
+row_spans = auto_mode ? tile_split(auto_rows, bed_d, asp_front, asp_back) : [];
 
 // mm position of plate k in the assembled plan: the cells of all plates before it.
 function tile_pos(spans, k) = k <= 0 ? 0 : spans[k - 1] * pitch + tile_pos(spans, k - 1);
@@ -665,6 +694,10 @@ if (auto_mode) {
                      + (ri == 0 ? asp_front : 0)
                      + (ri == len(row_spans) - 1 ? asp_back : 0),
                  " mm printed)"));
+    if (bed_swap)
+        echo(str("NOTE: Plates sized for the printable area rotated 90 degrees (",
+                 bed_d, " x ", bed_w, ") - fewer plates that way; the slicer's ",
+                 "auto-arrange rotates them onto the bed."));
     echo("NOTE: Auto Baseplates is active - Grid, Drawer Spacers and Custom Shape settings are ignored.");
 } else {
     // Total outer footprint, including any drawer spacers, so you can size it
