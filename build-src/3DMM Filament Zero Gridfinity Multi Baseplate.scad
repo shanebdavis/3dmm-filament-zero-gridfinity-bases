@@ -39,7 +39,7 @@ cover_depth = 400; // [0:1:2000]
 // Fill the leftover millimeters with drawer spacers on the outer edges, so the assembled footprint is exactly the cover size. Uncheck for bare plates - the set shrinks to the largest grid that fits.
 drawer_spacers = true;
 // Use a trailing half-size (21mm) column/row when it fits the cover size better. Uncheck for whole 42mm squares only - the leftover goes to the drawer spacers instead.
-half_tiles = true;
+half_tiles = false;
 
 // Sparse: halves your filament cost by removing internal geometry, while staying fully Gridfinity compatible. Ideal for larger layouts with larger trays.
 sparse = false;

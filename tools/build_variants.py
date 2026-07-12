@@ -60,8 +60,10 @@ VARIANTS = [
             ("Basic", ["model", "@Auto Baseplate Set Generation", "sparse"]),
             ("Advanced", ["@Advanced"]),
         ],
-        # Ship with a real layout on screen instead of the manual fallback.
-        "overrides": {"cover_width": "400", "cover_depth": "400"},
+        # Ship with a real layout on screen instead of the manual fallback,
+        # and default to whole 42mm squares (half tiles opt-in).
+        "overrides": {"cover_width": "400", "cover_depth": "400",
+                      "half_tiles": "false"},
     },
 ]
 
