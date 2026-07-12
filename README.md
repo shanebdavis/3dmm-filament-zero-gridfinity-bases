@@ -152,8 +152,8 @@ the one source file:
 
 ```
 ./make_makerworld.sh
-# -> build/3DMM Filament Zero Gridfinity Baseplate.scad       (Single-Plate)
-# -> build/3DMM Filament Zero Gridfinity Baseplate Set.scad   (Multi-Plate)
+# -> build/3DMM Filament Zero Gridfinity Single Baseplate.scad   (Single-Plate)
+# -> build/3DMM Filament Zero Gridfinity Multi Baseplate.scad    (Multi-Plate)
 ```
 
 - **Single-Plate** exposes Model, Grid, Drawer Spacers, Custom Shape and

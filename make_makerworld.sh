@@ -2,8 +2,8 @@
 #
 # Generate the two MakerWorld customizer variants from src/gridfinity_base.scad:
 #
-#   build/3DMM Filament Zero Gridfinity Baseplate.scad       (Single-Plate)
-#   build/3DMM Filament Zero Gridfinity Baseplate Set.scad   (Multi-Plate)
+#   build/3DMM Filament Zero Gridfinity Single Baseplate.scad   (Single-Plate)
+#   build/3DMM Filament Zero Gridfinity Multi Baseplate.scad    (Multi-Plate)
 #
 # Each variant is the same engine with a simplified Customizer header: the
 # Single-Plate customizer hides the Auto Baseplates solver; the Multi-Plate

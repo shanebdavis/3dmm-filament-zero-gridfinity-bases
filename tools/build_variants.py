@@ -40,7 +40,7 @@ SENTINEL = "// ---- end of Customizer parameters"
 
 VARIANTS = [
     {
-        "name": "3DMM Filament Zero Gridfinity Baseplate",
+        "name": "3DMM Filament Zero Gridfinity Single Baseplate",
         "label": "Single-Plate customizer",
         "sections": ["Model", "Grid", "Drawer Spacers", "Custom Shape", "Advanced"],
         # auto-only knobs living in Advanced
@@ -48,7 +48,7 @@ VARIANTS = [
         "overrides": {},
     },
     {
-        "name": "3DMM Filament Zero Gridfinity Baseplate Set",
+        "name": "3DMM Filament Zero Gridfinity Multi Baseplate",
         "label": "Multi-Plate customizer",
         "sections": ["Model", "Auto Baseplate Set Generation", "Advanced"],
         "drop_params": [],

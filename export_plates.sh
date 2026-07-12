@@ -20,7 +20,7 @@ if ! command -v openscad >/dev/null 2>&1; then
     exit 1
 fi
 
-NAME="3DMM Filament Zero Gridfinity Baseplates"
+NAME="3DMM Filament Zero Gridfinity Multi Baseplate"
 SCAD="src/gridfinity_base.scad"
 OUT="build/plates"
 mkdir -p "$OUT"
