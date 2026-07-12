@@ -35,7 +35,7 @@ import re
 import sys
 
 SRC = "src/gridfinity_base.scad"
-OUT_DIR = "build"
+OUT_DIR = "build-src"
 SENTINEL = "// ---- end of Customizer parameters"
 
 VARIANTS = [

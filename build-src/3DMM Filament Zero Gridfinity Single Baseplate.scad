@@ -1,4 +1,10 @@
 // ============================================================
+//  GENERATED FILE - do not edit. Built by tools/build_variants.py
+//  (./make_makerworld.sh) from src/gridfinity_base.scad.
+//  Variant: Single-Plate customizer
+// ============================================================
+
+// ============================================================
 //  AT Ultra-Light Gridfinity Base  —  parametric assembler
 // ============================================================
 //  Self-contained: all geometry is inlined as polyhedron() below, so
@@ -35,7 +41,6 @@ spacer_back  = 0; // [0:0.5:41]
 spacer_right = 0; // [0:0.5:41]
 
 /* [Custom Shape] */
-
 // Remove squares from row 1 left
 row_1_left = 0; // [0:1:9]
 // Remove squares from row 1 right
@@ -77,44 +82,27 @@ row_10_left = 0; // [0:1:9]
 // Remove squares from row 10 right
 row_10_right = 0; // [0:1:9]
 
-/* [Auto Baseplate Set Generation] */
-// Cover a whole area (a drawer, a shelf) with auto-sized plates: pick your printer,
-// set BOTH cover sizes non-zero, and the solver fills the area with the largest grid
-// that fits, splits it into plates sized for your printer, and turns the leftover
-// millimeters into edge spacers so the assembled footprint is exactly what you asked
-// for. While active, the manual Grid, Drawer Spacers and Custom Shape settings are
-// ignored.
-// Printer the plates must fit on. Sizes are the largest single-color rectangle from the
-// official Bambu Studio machine profiles, not the advertised bed: P1/X1 series lose an
-// 18x28mm front-left corner to the filament-cutter stopper (plates print full-depth,
-// nudged right of the corner), and the dual-nozzle H2/X2 machines are limited to one
-// nozzle's reach for a single color.
-printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), a2l:A2L (330x320), p1p:P1P (238x256 - cutter corner), p1s:P1S (238x256 - cutter corner), p2s:P2S (256x256), x1c:X1 Carbon (238x256 - cutter corner), x1e:X1E (238x256 - cutter corner), x2d:X2D (256x256), h2s:H2S (340x320), h2d:H2D (325x320 single color), h2d_pro:H2D Pro (325x320 single color), h2c:H2C (325x320 single color), custom:Custom (set size under Advanced)]
-// Total width (mm) of the area to cover. 0 = off.
-cover_width = 0; // [0:1:2000]
-// Total depth (front-to-back, mm) of the area to cover. 0 = off.
-cover_depth = 0; // [0:1:2000]
-// Fill the leftover millimeters with drawer spacers on the outer edges, so the assembled footprint is exactly the cover size. Uncheck for bare plates - the set shrinks to the largest grid that fits.
-drawer_spacers = true;
-// Use a trailing half-size (21mm) column/row when it fits the cover size better. Uncheck for whole 42mm squares only - the leftover goes to the drawer spacers instead.
-half_tiles = true;
-
 /* [Advanced] */
 // Center on the plate
 centered = true;
 // Grid spacing in mm (42: standard gridfinity, 84: double, 168: quad)
 pitch = 42;      // [21:1:168]
 
-// Auto Baseplates only: gap between plates in the preview/export, so the slicer's Split to Objects cleanly separates them
-tile_gap = 5; // [2:0.5:20]
 
-// Auto Baseplates, Printer = Custom only: printable width (mm)
-custom_print_width = 256; // [100:1:1000]
-// Auto Baseplates, Printer = Custom only: printable depth (mm)
-custom_print_depth = 256; // [100:1:1000]
 
 // Customize the preview color to match your filament. Use standard HTML color codes: e.g. #ff0000 for red. This does not affect the model output.
 preview_color = "#0099ff";
+
+/* [Hidden] */
+// Fixed in this variant - not part of this customizer's UI.
+printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), a2l:A2L (330x320), p1p:P1P (238x256 - cutter corner), p1s:P1S (238x256 - cutter corner), p2s:P2S (256x256), x1c:X1 Carbon (238x256 - cutter corner), x1e:X1E (238x256 - cutter corner), x2d:X2D (256x256), h2s:H2S (340x320), h2d:H2D (325x320 single color), h2d_pro:H2D Pro (325x320 single color), h2c:H2C (325x320 single color), custom:Custom (set size under Advanced)]
+cover_width = 0; // [0:1:2000]
+cover_depth = 0; // [0:1:2000]
+drawer_spacers = true;
+half_tiles = true;
+tile_gap = 5; // [2:0.5:20]
+custom_print_width = 256; // [100:1:1000]
+custom_print_depth = 256; // [100:1:1000]
 
 // ---- end of Customizer parameters --------------------------
 // Everything below is internal. The [Hidden] group keeps these

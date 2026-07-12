@@ -67,8 +67,10 @@ tools/             STL → polyhedron() inliner (regenerates the geometry baked 
 inline-stls.sh     Convenience wrapper: re-inline the STLs into the .scad
 generate.sh        Batch-render the standard sizes for every model type
 export_plates.sh   Auto Baseplates: render each plate to its own STL (build/plates/)
-make_makerworld.sh Generate the two MakerWorld customizer variants (build/)
+make_makerworld.sh Generate the two MakerWorld customizer variants (build-src/)
 tools/build_variants.py  The variant builder behind make_makerworld.sh
+build-src/         The generated customizer variants, committed so the shipped
+                   files exist verbatim even without rerunning the generator
 ```
 
 `src/gridfinity_base.scad` is **self-contained**: the corner / connector geometry is
@@ -93,6 +95,13 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
 2. Open the Customizer: **Window → Customizer**.
 3. Set:
    - **Model** — Net+, Tape+, Beam+, or Beam
+   - **Sparse** — merge cells up to double width/depth and drop the internal walls
+     between them: roughly **half the filament and print time** on large areas.
+     Corners stay at standard Gridfinity positions (nothing is scaled — only the
+     connectors between corners stretch), so bins seat and plates tile exactly as
+     usual, just with less support under them. Works per plate in Auto Baseplates
+     too; half cells are never merged, and it's ignored when Custom Shape cuts
+     are set.
    - **Columns** / **Rows** — grid size in 42 mm cells, in 0.5 steps from 1 to 20.5.
      A `.5` appends a fully-enclosed half-cell (21 mm) column and/or row, for fitting
      odd drawer sizes (e.g. `2.5` = two full cells plus a half)
@@ -152,8 +161,8 @@ the one source file:
 
 ```
 ./make_makerworld.sh
-# -> build/3DMM Filament Zero Gridfinity Single Baseplate.scad   (Single-Plate)
-# -> build/3DMM Filament Zero Gridfinity Multi Baseplate.scad    (Multi-Plate)
+# -> build-src/3DMM Filament Zero Gridfinity Single Baseplate.scad   (Single-Plate)
+# -> build-src/3DMM Filament Zero Gridfinity Multi Baseplate.scad    (Multi-Plate)
 ```
 
 - **Single-Plate** exposes Model, Grid, Drawer Spacers, Custom Shape and

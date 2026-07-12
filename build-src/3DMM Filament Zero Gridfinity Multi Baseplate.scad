@@ -1,4 +1,10 @@
 // ============================================================
+//  GENERATED FILE - do not edit. Built by tools/build_variants.py
+//  (./make_makerworld.sh) from src/gridfinity_base.scad.
+//  Variant: Multi-Plate customizer
+// ============================================================
+
+// ============================================================
 //  AT Ultra-Light Gridfinity Base  —  parametric assembler
 // ============================================================
 //  Self-contained: all geometry is inlined as polyhedron() below, so
@@ -16,67 +22,6 @@ model = "rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam
 // Sparse plates: merge cells up to double width/depth and delete the internal walls between them - a big filament and print-time saver on large areas. Corners stay at standard Gridfinity positions so bins seat and tile normally, just with less support under them. Half cells are never merged; ignored when Custom Shape cuts are set.
 sparse = false;
 
-/* [Grid] */
-// Squares wide
-columns = 4; // [1:0.5:10]
-// Squares deep
-rows = 4;    // [1:0.5:10]
-
-/* [Drawer Spacers] */
-// Outward spacer on each side (mm) so the plate sits flush in a drawer. 0 = none.
-// Capped at 41 mm — past that, just add another Gridfinity cell instead.
-// Front Spacer (mm)
-spacer_front = 0; // [0:0.5:41]
-// Left Spacer (mm)
-spacer_left  = 0; // [0:0.5:41]
-// Back Spacer (mm)
-spacer_back  = 0; // [0:0.5:41]
-// Right Spacer (mm)
-spacer_right = 0; // [0:0.5:41]
-
-/* [Custom Shape] */
-
-// Remove squares from row 1 left
-row_1_left = 0; // [0:1:9]
-// Remove squares from row 1 right
-row_1_right = 0; // [0:1:9]
-// Remove squares from row 2 left
-row_2_left = 0; // [0:1:9]
-// Remove squares from row 2 right
-row_2_right = 0; // [0:1:9]
-// Remove squares from row 3 left
-row_3_left = 0; // [0:1:9]
-// Remove squares from row 3 right
-row_3_right = 0; // [0:1:9]
-// Remove squares from row 4 left
-row_4_left = 0; // [0:1:9]
-// Remove squares from row 4 right
-row_4_right = 0; // [0:1:9]
-// Remove squares from row 5 left
-row_5_left = 0; // [0:1:9]
-// Remove squares from row 5 right
-row_5_right = 0; // [0:1:9]
-// Remove squares from row 6 left
-row_6_left = 0; // [0:1:9]
-// Remove squares from row 6 right
-row_6_right = 0; // [0:1:9]
-// Remove squares from row 7 left
-row_7_left = 0; // [0:1:9]
-// Remove squares from row 7 right
-row_7_right = 0; // [0:1:9]
-// Remove squares from row 8 left
-row_8_left = 0; // [0:1:9]
-// Remove squares from row 8 right
-row_8_right = 0; // [0:1:9]
-// Remove squares from row 9 left
-row_9_left = 0; // [0:1:9]
-// Remove squares from row 9 right
-row_9_right = 0; // [0:1:9]
-// Remove squares from row 10 left
-row_10_left = 0; // [0:1:9]
-// Remove squares from row 10 right
-row_10_right = 0; // [0:1:9]
-
 /* [Auto Baseplate Set Generation] */
 // Cover a whole area (a drawer, a shelf) with auto-sized plates: pick your printer,
 // set BOTH cover sizes non-zero, and the solver fills the area with the largest grid
@@ -91,9 +36,9 @@ row_10_right = 0; // [0:1:9]
 // nozzle's reach for a single color.
 printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), a2l:A2L (330x320), p1p:P1P (238x256 - cutter corner), p1s:P1S (238x256 - cutter corner), p2s:P2S (256x256), x1c:X1 Carbon (238x256 - cutter corner), x1e:X1E (238x256 - cutter corner), x2d:X2D (256x256), h2s:H2S (340x320), h2d:H2D (325x320 single color), h2d_pro:H2D Pro (325x320 single color), h2c:H2C (325x320 single color), custom:Custom (set size under Advanced)]
 // Total width (mm) of the area to cover. 0 = off.
-cover_width = 0; // [0:1:2000]
+cover_width = 400; // [0:1:2000]
 // Total depth (front-to-back, mm) of the area to cover. 0 = off.
-cover_depth = 0; // [0:1:2000]
+cover_depth = 400; // [0:1:2000]
 // Fill the leftover millimeters with drawer spacers on the outer edges, so the assembled footprint is exactly the cover size. Uncheck for bare plates - the set shrinks to the largest grid that fits.
 drawer_spacers = true;
 // Use a trailing half-size (21mm) column/row when it fits the cover size better. Uncheck for whole 42mm squares only - the leftover goes to the drawer spacers instead.
@@ -115,6 +60,35 @@ custom_print_depth = 256; // [100:1:1000]
 
 // Customize the preview color to match your filament. Use standard HTML color codes: e.g. #ff0000 for red. This does not affect the model output.
 preview_color = "#0099ff";
+
+/* [Hidden] */
+// Fixed in this variant - not part of this customizer's UI.
+columns = 4; // [1:0.5:10]
+rows = 4;    // [1:0.5:10]
+spacer_front = 0; // [0:0.5:41]
+spacer_left  = 0; // [0:0.5:41]
+spacer_back  = 0; // [0:0.5:41]
+spacer_right = 0; // [0:0.5:41]
+row_1_left = 0; // [0:1:9]
+row_1_right = 0; // [0:1:9]
+row_2_left = 0; // [0:1:9]
+row_2_right = 0; // [0:1:9]
+row_3_left = 0; // [0:1:9]
+row_3_right = 0; // [0:1:9]
+row_4_left = 0; // [0:1:9]
+row_4_right = 0; // [0:1:9]
+row_5_left = 0; // [0:1:9]
+row_5_right = 0; // [0:1:9]
+row_6_left = 0; // [0:1:9]
+row_6_right = 0; // [0:1:9]
+row_7_left = 0; // [0:1:9]
+row_7_right = 0; // [0:1:9]
+row_8_left = 0; // [0:1:9]
+row_8_right = 0; // [0:1:9]
+row_9_left = 0; // [0:1:9]
+row_9_right = 0; // [0:1:9]
+row_10_left = 0; // [0:1:9]
+row_10_right = 0; // [0:1:9]
 
 // ---- end of Customizer parameters --------------------------
 // Everything below is internal. The [Hidden] group keeps these
