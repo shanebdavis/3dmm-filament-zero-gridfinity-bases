@@ -49,7 +49,7 @@ render() {
     local out
     out="$(printf '%s/%s - Plate %02d.stl' "$OUT" "$NAME" "$k")"
     echo "==> $out"
-    openscad -q -o "$out" -D "export_plate=$k" "$@" "$SCAD"
+    openscad -q -o "$out" --export-format binstl -D "export_plate=$k" "$@" "$SCAD"
 }
 export -f render
 export SCAD OUT NAME
