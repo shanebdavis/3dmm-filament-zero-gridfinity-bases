@@ -13,7 +13,7 @@
 /* [Model] */
 // Which base style to build
 model = "rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam+]
-// Sparse plates: merge cells up to double width/depth and delete the internal walls between them - a big filament and print-time saver on large areas. Corners stay at standard Gridfinity positions so bins seat and tile normally, just with less support under them. Half cells are never merged; ignored when Custom Shape cuts are set.
+// Sparse: halves your filament cost by removing internal geometry, while staying fully Gridfinity compatible. Ideal for larger layouts with larger trays.
 sparse = false;
 
 /* [Grid] */
@@ -94,8 +94,10 @@ printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), a2l:A2L (330x32
 cover_width = 0; // [0:1:2000]
 // Total depth (front-to-back, mm) of the area to cover. 0 = off.
 cover_depth = 0; // [0:1:2000]
-// Fill the leftover millimeters with drawer spacers on the outer edges, so the assembled footprint is exactly the cover size. Uncheck for bare plates - the set shrinks to the largest grid that fits.
-drawer_spacers = true;
+// Where the grid sits inside the covered width: drawer spacers fill the leftover millimeters on the other side(s), so the assembled footprint is exactly the cover width. None = no width spacers (the set shrinks to the grid).
+width_align = "center"; // [left:Left, center:Center, right:Right, none:None]
+// Where the grid sits inside the covered depth. None = no depth spacers.
+depth_align = "front"; // [front:Front, center:Center, back:Back, none:None]
 // Use a trailing half-size (21mm) column/row when it fits the cover size better. Uncheck for whole 42mm squares only - the leftover goes to the drawer spacers instead.
 half_tiles = true;
 
@@ -606,14 +608,20 @@ bed_entry = printer == "custom" ? undef : bed_sizes[search([printer], bed_sizes)
 bed       = printer == "custom" ? [custom_print_width, custom_print_depth] : bed_entry[1];
 
 // Grid size in cells (half-pitch granularity unless half_tiles is off), and the
-// leftover slack in mm. The slack becomes drawer spacers unless those are off,
-// in which case the assembled footprint shrinks to the bare grid.
+// leftover slack in mm. The alignment picks which side(s) of the grid the slack
+// fills as drawer spacers — aligning the grid left puts the spacers on the
+// right, centering splits them evenly, and "none" drops them (the assembled
+// footprint shrinks to the bare grid on that axis).
 auto_cols = half_tiles ? floor(cover_width / (pitch / 2)) / 2 : floor(cover_width / pitch);
 auto_rows = half_tiles ? floor(cover_depth / (pitch / 2)) / 2 : floor(cover_depth / pitch);
 slack_w   = cover_width - auto_cols * pitch;
 slack_d   = cover_depth - auto_rows * pitch;
-spacers_w = drawer_spacers ? slack_w : 0;
-spacers_d = drawer_spacers ? slack_d : 0;
+asp_left  = width_align == "center" ? slack_w / 2 : width_align == "right" ? slack_w : 0;
+asp_right = width_align == "center" ? slack_w / 2 : width_align == "left"  ? slack_w : 0;
+asp_front = depth_align == "center" ? slack_d / 2 : depth_align == "back"  ? slack_d : 0;
+asp_back  = depth_align == "center" ? slack_d / 2 : depth_align == "front" ? slack_d : 0;
+spacers_w = asp_left + asp_right;
+spacers_d = asp_front + asp_back;
 assembled_w = auto_cols * pitch + spacers_w;
 assembled_d = auto_rows * pitch + spacers_d;
 
@@ -629,8 +637,8 @@ function tile_split(total, avail, lead, tail) =
           assert(n >= 1, "Printable area too small for one grid cell plus its edge spacer - pick a bigger printer or a smaller pitch.")
           concat([n], tile_split(total - n, avail, 0, tail));
 
-col_spans = auto_mode ? tile_split(auto_cols, bed[0], spacers_w / 2, spacers_w / 2) : [];
-row_spans = auto_mode ? tile_split(auto_rows, bed[1], 0, spacers_d) : [];
+col_spans = auto_mode ? tile_split(auto_cols, bed[0], asp_left, asp_right) : [];
+row_spans = auto_mode ? tile_split(auto_rows, bed[1], asp_front, asp_back) : [];
 
 // mm position of plate k in the assembled plan: the cells of all plates before it.
 function tile_pos(spans, k) = k <= 0 ? 0 : spans[k - 1] * pitch + tile_pos(spans, k - 1);
@@ -640,10 +648,10 @@ function tile_pos(spans, k) = k <= 0 ? 0 : spans[k - 1] * pitch + tile_pos(spans
 // puts its interlocking corners there automatically), and no Custom Shape cuts.
 function tile_spec(ci, ri) = spec(
     col_spans[ci], row_spans[ri],
-    0,                                                   // front: slack all went to the back
-    ri == len(row_spans) - 1 ? spacers_d     : 0,
-    ci == 0                  ? spacers_w / 2 : 0,
-    ci == len(col_spans) - 1 ? spacers_w / 2 : 0,
+    ri == 0                  ? asp_front : 0,
+    ri == len(row_spans) - 1 ? asp_back  : 0,
+    ci == 0                  ? asp_left  : 0,
+    ci == len(col_spans) - 1 ? asp_right : 0,
     [], []);
 
 // Every plate of the plan, laid out in assembled positions plus tile_gap between
@@ -665,21 +673,23 @@ if (auto_mode) {
              auto_cols, " x ", auto_rows, " squares) with ",
              len(col_spans), " x ", len(row_spans), " = ",
              len(col_spans) * len(row_spans), " plates"));
-    if (drawer_spacers)
-        echo(str("==> Slack: ", spacers_w / 2, " mm left + ", spacers_w / 2,
-                 " mm right, ", spacers_d, " mm back (spacers)"));
-    else
-        echo(str("NOTE: Drawer spacers off - assembled footprint is ", assembled_w, " x ",
+    if (spacers_w > 0 || spacers_d > 0)
+        echo(str("==> Spacers: ", asp_left, " mm left, ", asp_right, " mm right, ",
+                 asp_front, " mm front, ", asp_back, " mm back"));
+    if (spacers_w < slack_w || spacers_d < slack_d)
+        echo(str("NOTE: Alignment 'none' - assembled footprint is ", assembled_w, " x ",
                  assembled_d, " mm (", cover_width, " x ", cover_depth, " requested)."));
     for (ci = [0 : len(col_spans) - 1])
         echo(str("==> Plate column ", ci + 1, ": ", col_spans[ci], " squares wide (",
                  col_spans[ci] * pitch
-                     + (ci == 0 ? spacers_w / 2 : 0)
-                     + (ci == len(col_spans) - 1 ? spacers_w / 2 : 0),
+                     + (ci == 0 ? asp_left : 0)
+                     + (ci == len(col_spans) - 1 ? asp_right : 0),
                  " mm printed)"));
     for (ri = [0 : len(row_spans) - 1])
         echo(str("==> Plate row ", ri + 1, ": ", row_spans[ri], " squares deep (",
-                 row_spans[ri] * pitch + (ri == len(row_spans) - 1 ? spacers_d : 0),
+                 row_spans[ri] * pitch
+                     + (ri == 0 ? asp_front : 0)
+                     + (ri == len(row_spans) - 1 ? asp_back : 0),
                  " mm printed)"));
     echo("NOTE: Auto Baseplates is active - Grid, Drawer Spacers and Custom Shape settings are ignored.");
 } else {
@@ -719,8 +729,8 @@ if (auto_mode) {
 module assembly_view() {
     if (auto_mode) {
         if (centered)
-            translate([spacers_w / 2 - (assembled_w + (len(col_spans) - 1) * tile_gap) / 2,
-                       -(assembled_d + (len(row_spans) - 1) * tile_gap) / 2, 0])
+            translate([asp_left  - (assembled_w + (len(col_spans) - 1) * tile_gap) / 2,
+                       asp_front - (assembled_d + (len(row_spans) - 1) * tile_gap) / 2, 0])
                 auto_layout();
         else
             auto_layout();

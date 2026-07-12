@@ -124,13 +124,14 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
      with plates placed right of the corner), and the dual-nozzle H2D/H2C print a
      single color from one nozzle, which only reaches 325 mm of the bed. The solver
      fits the largest half-cell grid inside the area, splits it into plates that each
-     fit your printer, and converts the leftover millimeters into drawer spacers
-     (split left/right for width, all to the back for depth), so the assembled
-     footprint is *exactly* what you entered. While active it overrides Grid, Drawer
-     Spacers and Custom Shape. Two checkboxes tune the fill: **Drawer spacers**
-     (uncheck for bare plates — the set shrinks to the largest grid that fits) and
-     **Half tiles** (uncheck for whole 42 mm squares only; the extra leftover goes
-     to the spacers). The preview shows all plates laid out in their assembled
+     fit your printer, and converts the leftover millimeters into drawer spacers so
+     the assembled footprint is *exactly* what you entered. While active it overrides
+     Grid, Drawer Spacers and Custom Shape. **Width alignment** (left / center /
+     right / none) and **Depth alignment** (front / center / back / none) pick which
+     side of the drawer the grid hugs — the spacers fill the opposite side(s), and
+     "none" drops them so the set shrinks to the bare grid on that axis. **Half
+     tiles** (uncheck for whole 42 mm squares only; the extra leftover goes to the
+     spacers). The preview shows all plates laid out in their assembled
      positions with a small gap. With **Beam+**, plate-to-plate edges get the
      interlocking corners automatically, so the finished grid clips together.
      The Console lists every plate size and its printed footprint.
@@ -165,13 +166,16 @@ the one source file:
 # -> build-src/3DMM Filament Zero Gridfinity Multi Baseplate.scad    (Multi-Plate)
 ```
 
-- **Single-Plate** exposes Model, Grid, Drawer Spacers, Custom Shape and
-  Advanced — the classic one-plate customizer, with the Auto Baseplates solver
-  pinned off.
-- **Multi-Plate** ("Baseplate Set") exposes Model, then Auto Baseplate Set
-  Generation — pick your printer, enter the area to cover — then Advanced. The
-  manual Grid / Drawer Spacers / Custom Shape settings are pinned off, and it
-  ships with a 400×400 mm cover area so the first preview shows a real layout.
+MakerWorld auto-expands only the *first* parameter group, so each variant leads
+with a **Basic** group holding everything a user normally touches:
+
+- **Single-Plate**: Basic (model, grid size, sparse, drawer spacers), then
+  Custom Shape and Advanced — the classic one-plate customizer, with the Auto
+  Baseplates solver pinned off.
+- **Multi-Plate**: Basic (model, printer, area to cover, fill toggles, sparse),
+  then Advanced. The manual Grid / Drawer Spacers / Custom Shape settings are
+  pinned off, and it ships with a 400×400 mm cover area so the first preview
+  shows a real layout.
 
 Both are plain single-output scripts — deliberately **no Parametric Model
 Maker multi-plate hooks** — so MakerWorld keeps the **STL download** button on
