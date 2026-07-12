@@ -118,9 +118,12 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
      fit your printer, and converts the leftover millimeters into drawer spacers
      (split left/right for width, all to the back for depth), so the assembled
      footprint is *exactly* what you entered. While active it overrides Grid, Drawer
-     Spacers and Custom Shape. The preview shows all plates laid out in their
-     assembled positions with a small gap. With **Beam+**, plate-to-plate edges get
-     the interlocking corners automatically, so the finished grid clips together.
+     Spacers and Custom Shape. Two checkboxes tune the fill: **Drawer spacers**
+     (uncheck for bare plates — the set shrinks to the largest grid that fits) and
+     **Half tiles** (uncheck for whole 42 mm squares only; the extra leftover goes
+     to the spacers). The preview shows all plates laid out in their assembled
+     positions with a small gap. With **Beam+**, plate-to-plate edges get the
+     interlocking corners automatically, so the finished grid clips together.
      The Console lists every plate size and its printed footprint.
 
      To print, export the whole layout as **one STL**, import it into the slicer,
