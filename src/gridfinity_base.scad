@@ -76,15 +76,12 @@ row_10_left = 0; // [0:1:9]
 row_10_right = 0; // [0:1:9]
 
 /* [Auto Baseplate Set Generation] */
-// Cover a whole area (a drawer, a shelf) with auto-sized plates: set BOTH cover sizes
-// non-zero and the solver fills the area with the largest grid that fits, splits it
-// into plates sized for your printer, and turns the leftover millimeters into edge
-// spacers so the assembled footprint is exactly what you asked for. While active,
-// the Grid, Drawer Spacers and Custom Shape settings above are ignored.
-// Total width (mm) of the area to cover. 0 = off.
-cover_width = 0; // [0:1:2000]
-// Total depth (front-to-back, mm) of the area to cover. 0 = off.
-cover_depth = 0; // [0:1:2000]
+// Cover a whole area (a drawer, a shelf) with auto-sized plates: pick your printer,
+// set BOTH cover sizes non-zero, and the solver fills the area with the largest grid
+// that fits, splits it into plates sized for your printer, and turns the leftover
+// millimeters into edge spacers so the assembled footprint is exactly what you asked
+// for. While active, the manual Grid, Drawer Spacers and Custom Shape settings are
+// ignored.
 // Printer the plates must fit on. Sizes are the largest single-color rectangle from the
 // official Bambu Studio machine profiles, not the advertised bed: P1/X1 series lose an
 // 18x28mm front-left corner to the filament-cutter stopper (plates print full-depth,
@@ -95,10 +92,10 @@ printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), a2l:A2L (330x32
 custom_print_width = 256; // [100:1:1000]
 // Printable depth (mm), used only when Printer = Custom
 custom_print_depth = 256; // [100:1:1000]
-// Gap between plates in the preview/export, so the slicer can split them into separate objects
-tile_gap = 5; // [2:0.5:20]
-// MakerWorld multi-plate download only: cap each plate at 235 mm so MakerWorld's auto-arrangement can place it (its arranger fails above ~240 mm and the download degrades to one fused object). Uncheck for full-bed plates - requires the model profile to have Auto Arrangement disabled. No effect in desktop OpenSCAD.
-mw_safe_plates = true;
+// Total width (mm) of the area to cover. 0 = off.
+cover_width = 0; // [0:1:2000]
+// Total depth (front-to-back, mm) of the area to cover. 0 = off.
+cover_depth = 0; // [0:1:2000]
 
 /* [Advanced] */
 // Center on the plate
@@ -106,8 +103,8 @@ centered = true;
 // Grid spacing in mm (42: standard gridfinity, 84: double, 168: quad)
 pitch = 42;      // [21:1:168]
 
-// Auto Baseplates only: render a single plate by number (1 = front-left plate, counting left to right then front to back) instead of the whole layout - use it to export plates one at a time to your slicer. 0 = the whole layout. Ignored on MakerWorld, where every plate already downloads separately.
-export_plate = 0; // [0:1:36]
+// Auto Baseplates only: gap between plates in the preview/export, so the slicer's Split to Objects cleanly separates them
+tile_gap = 5; // [2:0.5:20]
 
 // Customize the preview color to match your filament. Use standard HTML color codes: e.g. #ff0000 for red. This does not affect the model output.
 preview_color = "#0099ff";
@@ -118,11 +115,11 @@ preview_color = "#0099ff";
 // OpenSCAD / MakerWorld Customizer UI.
 /* [Hidden] */
 
-// MakerWorld multi-plate switch. When true, nothing renders at the top level so the
-// appended plate-hook modules (see make_makerworld.sh) are the only output. Kept
-// false here so desktop OpenSCAD shows the model; ./make_makerworld.sh flips it in
-// the generated upload variant. Do not edit by hand.
-mw_export = false;
+// Auto Baseplates only: render a single plate by number (1 = front-left plate,
+// counting left to right then front to back) instead of the whole layout. A
+// scripting hook for export_plates.sh (openscad -D export_plate=N); 0 = the
+// whole layout.
+export_plate = 0; // [0:1:36]
 
 // Corner footprint along an edge (mm). Solid and Solid+ share the 12mm corner.
 corner_size = (model == "rigid" || model == "net_rigid") ? 12 : 5;
@@ -487,9 +484,8 @@ auto_mode = cover_width > 0 && cover_depth > 0;
 //     of the bed width, and a single color prints from one nozzle.
 //   - X2D: the left nozzle covers the full 256x256, so single color is unrestricted.
 // Each entry is [id, printable [w, d], printable-rectangle origin [x, y] on the
-// physical bed]. The origin matters for the P1/X1 family: their usable rectangle
-// starts at x = 18 (right of the cutter corner), so a plate placed centered on
-// the usable rectangle lands at bed x = 18 + 238/2, clear of the exclusion.
+// physical bed]. The origin documents the P1/X1 family's usable rectangle starting
+// at x = 18 (right of the cutter corner).
 bed_sizes = [
     ["a1_mini", [180, 180], [ 0, 0]],
     ["a1",      [256, 256], [ 0, 0]], ["a2l", [330, 320], [0, 0]],
@@ -501,16 +497,8 @@ bed_sizes = [
     ["h2d",     [325, 320], [ 0, 0]], ["h2d_pro", [325, 320], [0, 0]],
     ["h2c",     [325, 320], [ 0, 0]],
 ];
-bed_entry  = printer == "custom" ? undef : bed_sizes[search([printer], bed_sizes)[0]];
-bed        = printer == "custom" ? [custom_print_width, custom_print_depth] : bed_entry[1];
-bed_origin = printer == "custom" ? [0, 0]                                   : bed_entry[2];
-
-// Where a plate's center belongs in bed coordinates (origin = the bed's front-left
-// corner, Bambu Studio convention): the middle of the printable rectangle. Used by
-// the MakerWorld plate hooks, which must position geometry themselves when PMM's
-// Auto Arrangement is disabled — required, since its arranger only handles objects
-// up to ~240x235 mm and auto-sized plates can be bigger.
-bed_center = [bed_origin[0] + bed[0] / 2, bed_origin[1] + bed[1] / 2];
+bed_entry = printer == "custom" ? undef : bed_sizes[search([printer], bed_sizes)[0]];
+bed       = printer == "custom" ? [custom_print_width, custom_print_depth] : bed_entry[1];
 
 // Grid size in (possibly fractional) cells, and the leftover slack in mm.
 auto_cols = floor(cover_width / (pitch / 2)) / 2;
@@ -530,18 +518,8 @@ function tile_split(total, avail, lead, tail) =
           assert(n >= 1, "Printable area too small for one grid cell plus its edge spacer - pick a bigger printer or a smaller pitch.")
           concat([n], tile_split(total - n, avail, 0, tail));
 
-// MakerWorld's auto-arranger fails on objects bigger than ~240 mm, degrading the
-// multi-plate download to one fused object. In the MakerWorld variant (mw_export)
-// plates are therefore capped at 235 mm by default so arrangement always succeeds;
-// unchecking mw_safe_plates lifts the cap for full-bed plates (the plate hooks
-// place those on the bed themselves, but the model profile must have Auto
-// Arrangement disabled or generation fails). Desktop OpenSCAD is never capped.
-pmm_arrange_cap = 235;
-avail_w = (mw_export && mw_safe_plates) ? min(bed[0], pmm_arrange_cap) : bed[0];
-avail_d = (mw_export && mw_safe_plates) ? min(bed[1], pmm_arrange_cap) : bed[1];
-
-col_spans = auto_mode ? tile_split(auto_cols, avail_w, slack_w / 2, slack_w / 2) : [];
-row_spans = auto_mode ? tile_split(auto_rows, avail_d, 0, slack_d) : [];
+col_spans = auto_mode ? tile_split(auto_cols, bed[0], slack_w / 2, slack_w / 2) : [];
+row_spans = auto_mode ? tile_split(auto_rows, bed[1], 0, slack_d) : [];
 
 // mm position of plate k in the assembled plan: the cells of all plates before it.
 function tile_pos(spans, k) = k <= 0 ? 0 : spans[k - 1] * pitch + tile_pos(spans, k - 1);
@@ -589,10 +567,6 @@ if (auto_mode) {
                  row_spans[ri] * pitch + (ri == len(row_spans) - 1 ? slack_d : 0),
                  " mm printed)"));
     echo("NOTE: Auto Baseplates is active - Grid, Drawer Spacers and Custom Shape settings are ignored.");
-    if (mw_export && mw_safe_plates && (avail_w < bed[0] || avail_d < bed[1]))
-        echo(str("NOTE: plates capped at ", pmm_arrange_cap, " mm for MakerWorld auto-arrangement. ",
-                 "Uncheck 'mw_safe_plates' for full-bed plates (requires Auto Arrangement ",
-                 "disabled in the model profile)."));
 } else {
     // Total outer footprint, including any drawer spacers, so you can size it
     // against your drawer before exporting.
@@ -620,7 +594,7 @@ if (auto_mode) {
 // ------------------------------------------------------------
 // Output. Everything printable is reachable two ways — the whole layout at once
 // (assembly_view) or one plate at a time (plate) — so the same geometry serves
-// desktop OpenSCAD, per-plate STL export, and MakerWorld multi-plate 3MF.
+// desktop OpenSCAD, whole-layout STL export, and per-plate export (export_plates.sh).
 
 // The whole plan. Centering shifts the X/Y footprint onto the origin — the full
 // tile layout (including gaps) in auto mode, the single plate in manual mode.
@@ -646,9 +620,7 @@ n_plates = auto_mode ? len(col_spans) * len(row_spans) : 1;
 
 // One printable plate, centered on the origin (its own build plate). Plates are
 // numbered 1..n_plates: 1 = front-left, counting left to right, then front to back.
-// Manual mode is a single plate. Out-of-range k renders nothing — MakerWorld
-// discards empty plates, which is how the fixed list of mw_plate_N() hooks below
-// adapts to the solver's variable plate count.
+// Manual mode is a single plate. Out-of-range k renders nothing.
 module plate(k) {
     if (k >= 1 && k <= n_plates) {
         s = auto_mode ? tile_spec((k - 1) % len(col_spans),
@@ -662,21 +634,12 @@ module plate(k) {
 
 if (auto_mode && n_plates > 36)
     echo(str("WARNING: ", n_plates, " plates - only the first 36 are reachable via ",
-             "export_plate / MakerWorld. Use a larger printer or split the cover area."));
+             "export_plate. Use a larger printer or split the cover area."));
 
-if (!mw_export)
-    color(preview_color) {
-        if (auto_mode && export_plate > 0) plate(export_plate);
-        else assembly_view();
-    }
-
-// NOTE: The MakerWorld multi-plate hooks are deliberately NOT in this file.
-// MakerWorld's Parametric Model Maker renders the top level of the script into
-// every plate module it finds, so a file containing both a top-level render and
-// plate hooks exports N copies of the whole layout. This file is the normal,
-// STL-friendly single-output script; ./make_makerworld.sh assembles the
-// multi-plate upload variant from it (silences the top level, appends the
-// hooks from src/makerworld_hooks.scad).
+color(preview_color) {
+    if (auto_mode && export_plate > 0) plate(export_plate);
+    else assembly_view();
+}
 
 // ============================================================
 //  INLINED GEOMETRY

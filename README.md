@@ -67,8 +67,8 @@ tools/             STL → polyhedron() inliner (regenerates the geometry baked 
 inline-stls.sh     Convenience wrapper: re-inline the STLs into the .scad
 generate.sh        Batch-render the standard sizes for every model type
 export_plates.sh   Auto Baseplates: render each plate to its own STL (build/plates/)
-src/makerworld_hooks.scad  MakerWorld mw_plate hooks, appended into the upload variant
-make_makerworld.sh Generate the MakerWorld multi-plate upload variant (build/)
+make_makerworld.sh Generate the two MakerWorld customizer variants (build/)
+tools/build_variants.py  The variant builder behind make_makerworld.sh
 ```
 
 `src/gridfinity_base.scad` is **self-contained**: the corner / connector geometry is
@@ -123,17 +123,18 @@ This installs the OpenSCAD app (and the `openscad` CLI used for headless renderi
      the interlocking corners automatically, so the finished grid clips together.
      The Console lists every plate size and its printed footprint.
 
-     To print, export each plate as its own file — don't export the whole layout as
-     one STL and split it in the slicer (*Split to Objects* explodes the plates'
-     intentionally disconnected lattice into hundreds of bodies). Either run
+     To print, export the whole layout as **one STL**, import it into the slicer,
+     then **Split to Objects** and auto-arrange (press **A** in Bambu Studio) —
+     every plate separates cleanly into its own object (see *cavity vents* in the
+     MakerWorld section). To render each plate to its own file instead, run
 
      ```
      ./export_plates.sh -D cover_width=500 -D cover_depth=450 -D 'printer="p1s"'
      ```
 
-     which renders every plate in parallel to `build/plates/… - Plate NN.stl`, or set
-     **Export plate** (under Advanced) to 1, 2, 3… in the Customizer and export one
-     STL per plate by hand. Plates are numbered left to right, then front to back.
+     which renders every plate in parallel to `build/plates/… - Plate NN.stl`
+     (driving the hidden `export_plate` parameter via `-D`). Plates are numbered
+     left to right, then front to back.
    - **Advanced** — pitch (42 mm = standard Gridfinity), centering, and preview colour
 4. `F5` to preview, `F6` to render, then **File → Export → Export as STL**.
 
@@ -141,70 +142,56 @@ The **Console** (**View → Console**) prints the total outer footprint in mm
 (`Total size: … wide (X) x … deep (Y)`), including any spacers, so you can check it
 against your drawer before exporting.
 
-## Publishing on MakerWorld (multi-plate)
+## Publishing on MakerWorld (two customizers)
 
-MakerWorld's Parametric Model Maker can export Auto Baseplates as a proper
-multi-plate 3MF — one build plate per printed plate — via its `mw_plate_N()`
-module convention. **Upload the generated variant, not the src file:**
+MakerWorld gets **two purpose-built customizer scripts**, both generated from
+the one source file:
 
 ```
-./make_makerworld.sh        # -> build/3DMM Filament Zero Gridfinity Baseplates.scad
+./make_makerworld.sh
+# -> build/3DMM Filament Zero Gridfinity Baseplate.scad       (Single-Plate)
+# -> build/3DMM Filament Zero Gridfinity Baseplate Set.scad   (Multi-Plate)
 ```
 
-The variant is the src file with the top-level render silenced (hidden
-`mw_export` switch) plus the plate hooks from `src/makerworld_hooks.scad`
-appended: 36 `mw_plate_N()` modules (the solver fills as many as it needs;
-empty ones are discarded by MakerWorld) and an `mw_assembly_view()` that shows
-the whole assembled layout as the preview.
+- **Single-Plate** exposes Model, Grid, Drawer Spacers, Custom Shape and
+  Advanced — the classic one-plate customizer, with the Auto Baseplates solver
+  pinned off.
+- **Multi-Plate** ("Baseplate Set") exposes Model, then Auto Baseplate Set
+  Generation — pick your printer, enter the area to cover — then Advanced. The
+  manual Grid / Drawer Spacers / Custom Shape settings are pinned off, and it
+  ships with a 400×400 mm cover area so the first preview shows a real layout.
 
-The split exists because PMM renders the script's *top level into every
-plate*: a file with both a visible layout and plate hooks exports N copies of
-the entire layout. That's also why the hooks must never be added to
-`src/gridfinity_base.scad` itself (make_makerworld.sh refuses to build if they
-are). Uploading the plain src file to MakerWorld is still fine — it just
-behaves as a classic single-output customizer script, with the STL download
-button that multi-plate scripts lose. Publishing both gives makers the choice:
-3MF with all plates in one download, or STL one plate at a time via the
-**Export plate** parameter on the plain script.
+Both are plain single-output scripts — deliberately **no Parametric Model
+Maker multi-plate hooks** — so MakerWorld keeps the **STL download** button on
+both listings. STL is the point: PMM's multi-plate 3MF ships MakerWorld's
+default print profile, which is wrong for these models, and walking makers
+through exporting objects out of it into a correct profile was tedious. With
+an STL the maker starts inside our published print profile and stays there.
+Printing a Baseplate Set is three inputs in Bambu Studio: import the STL into
+the print profile, click it and **Split to Objects**, press **A** to
+auto-arrange. Done.
 
-MakerWorld names the downloaded 3MF after the uploaded `.scad` file (the
-listing title is not embedded), which is why the build output is named
-`3DMM Filament Zero Gridfinity Baseplates.scad` — rename it there if the
-product name changes.
+Each variant is the source file with only the Customizer parameter header
+rearranged — parameters of omitted sections are pinned to their defaults in a
+hidden block, and everything below the header is emitted byte-identical.
+`tools/build_variants.py` fails the build if an expected section or parameter
+disappears, so the variants can't silently drift from
+`src/gridfinity_base.scad` (which remains the full-capability script for local
+development). MakerWorld names the downloaded file after the uploaded `.scad`,
+so the build outputs carry the product names — rename them in
+`tools/build_variants.py` if the product names change.
 
-**The auto-arrangement trap.** PMM's auto-arranger only handles objects up to
-~240 mm; when an object exceeds that, PMM shows *"Model cannot fit in plates,
-disable auto-arrangement"* and the download degrades to a single fused object
-(the assembly view). The variant defends against this out of the box: in the
-MakerWorld build, plates are capped at 235 mm per side (`mw_safe_plates`,
-checked by default), so arrangement always succeeds. On a P1S that costs one
-grid row per plate (210 mm deep instead of 252) — the solver just adds a plate
-when needed.
+### Cavity vents (why Split to Objects works)
 
-For full-bed plates instead, the customizer user unchecks `mw_safe_plates`
-**and** the model profile must have Auto Arrangement disabled, or generation
-fails again. Per Bambu's docs the toggle lives here:
-
-1. Open Parametric Model Maker through the **Model Upload/Edit** page.
-2. Click the **profile configuration button in the top-right corner**.
-3. Disable **Auto Arrangement** in the popup dialog.
-4. Click **Upload** — the setting only persists when saved this way.
-
-With arrangement disabled, geometry coordinates are the placement — the plate
-hooks position every plate at the center of the selected printer's usable
-rectangle (including shifting right of the P1/X1 cutter corner), so no manual
-arranging should be needed. Desktop OpenSCAD and export_plates.sh are never
-capped; `mw_safe_plates` only affects the MakerWorld build.
-
-## Customizing your layout (Bambu Studio, no OpenSCAD needed)
-
-For non-rectangular layouts without touching OpenSCAD:
-
-1. Import a full rectangular plate STL.
-2. **Ungroup** the plate into individual squares.
-3. Select and **delete** the squares you don't want.
-4. **Regroup** the remaining squares.
-5. Slice and print.
+The Beam/Beam+ corners intentionally enclose sealed air pockets at interior
+cell crossings — they split the doubled walls into separated perimeter lines
+when sliced. A sealed cavity is always a separate shell in an exported mesh,
+so slicers' *Split to Objects* used to break those pockets out as dozens of
+loose boxes (and silently delete the inner structure from the plate). Every
+pocket is therefore vented to the plate's underside through a hair-thin
+channel (`crossing_vents()` in the source): the mesh becomes one connected
+shell per plate, the pockets survive splitting, and the channels are far below
+one extrusion width so they never appear in toolpaths.
 
 ## References & inspiration
 
