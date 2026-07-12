@@ -25,7 +25,7 @@ columns = 4; // [1:0.5:10]
 // Squares deep
 rows = 4;    // [1:0.5:10]
 
-// Sparse plates: merge cells up to double width/depth and delete the internal walls between them - a big filament and print-time saver on large areas. Corners stay at standard Gridfinity positions so bins seat and tile normally, just with less support under them. Half cells are never merged; ignored when Custom Shape cuts are set.
+// Sparse: halves your filament cost by removing internal geometry, while staying fully Gridfinity compatible. Ideal for larger layouts with larger trays.
 sparse = false;
 
 // Outward spacer on each side (mm) so the plate sits flush in a drawer. 0 = none.
