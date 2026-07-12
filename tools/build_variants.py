@@ -43,7 +43,8 @@ VARIANTS = [
         "name": "3DMM Filament Zero Gridfinity Baseplate",
         "label": "Single-Plate customizer",
         "sections": ["Model", "Grid", "Drawer Spacers", "Custom Shape", "Advanced"],
-        "drop_params": ["tile_gap"],   # auto-only knob living in Advanced
+        # auto-only knobs living in Advanced
+        "drop_params": ["tile_gap", "custom_print_width", "custom_print_depth"],
         "overrides": {},
     },
     {

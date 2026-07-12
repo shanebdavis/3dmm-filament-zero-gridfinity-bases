@@ -87,11 +87,7 @@ row_10_right = 0; // [0:1:9]
 // 18x28mm front-left corner to the filament-cutter stopper (plates print full-depth,
 // nudged right of the corner), and the dual-nozzle H2/X2 machines are limited to one
 // nozzle's reach for a single color.
-printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), a2l:A2L (330x320), p1p:P1P (238x256 - cutter corner), p1s:P1S (238x256 - cutter corner), p2s:P2S (256x256), x1c:X1 Carbon (238x256 - cutter corner), x1e:X1E (238x256 - cutter corner), x2d:X2D (256x256), h2s:H2S (340x320), h2d:H2D (325x320 single color), h2d_pro:H2D Pro (325x320 single color), h2c:H2C (325x320 single color), custom:Custom (set below)]
-// Printable width (mm), used only when Printer = Custom
-custom_print_width = 256; // [100:1:1000]
-// Printable depth (mm), used only when Printer = Custom
-custom_print_depth = 256; // [100:1:1000]
+printer = "p1s"; // [a1_mini:A1 mini (180x180), a1:A1 (256x256), a2l:A2L (330x320), p1p:P1P (238x256 - cutter corner), p1s:P1S (238x256 - cutter corner), p2s:P2S (256x256), x1c:X1 Carbon (238x256 - cutter corner), x1e:X1E (238x256 - cutter corner), x2d:X2D (256x256), h2s:H2S (340x320), h2d:H2D (325x320 single color), h2d_pro:H2D Pro (325x320 single color), h2c:H2C (325x320 single color), custom:Custom (set size under Advanced)]
 // Total width (mm) of the area to cover. 0 = off.
 cover_width = 0; // [0:1:2000]
 // Total depth (front-to-back, mm) of the area to cover. 0 = off.
@@ -105,6 +101,11 @@ pitch = 42;      // [21:1:168]
 
 // Auto Baseplates only: gap between plates in the preview/export, so the slicer's Split to Objects cleanly separates them
 tile_gap = 5; // [2:0.5:20]
+
+// Auto Baseplates, Printer = Custom only: printable width (mm)
+custom_print_width = 256; // [100:1:1000]
+// Auto Baseplates, Printer = Custom only: printable depth (mm)
+custom_print_depth = 256; // [100:1:1000]
 
 // Customize the preview color to match your filament. Use standard HTML color codes: e.g. #ff0000 for red. This does not affect the model output.
 preview_color = "#0099ff";
