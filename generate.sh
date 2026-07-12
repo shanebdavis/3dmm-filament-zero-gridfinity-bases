@@ -40,28 +40,39 @@ SIZES=(
     "6 6"
 )
 
+# Sizes also rendered with the sparse option on, one per model.
+SPARSE_SIZES=(
+    "6 6"
+)
+
 # Render one STL. Exported so xargs -P can call it in parallel subshells.
 render() {
-    local id="$1" label="$2" cols="$3" rows="$4"
-    local out="$OUT/$label ${cols}x${rows}.stl"
+    local id="$1" label="$2" cols="$3" rows="$4" sparse="$5"
+    local suffix=""; [[ "$sparse" == "true" ]] && suffix=" Sparse"
+    local out="$OUT/$label ${cols}x${rows}${suffix}.stl"
     echo "==> $out"
-    openscad -q -o "$out" \
+    openscad -q -o "$out" --export-format binstl \
         -D "model=\"$id\"" \
         -D "columns=$cols" \
         -D "rows=$rows" \
+        -D "sparse=$sparse" \
         "$SCAD"
 }
 export -f render
 export SCAD OUT
 
-# Emit one NUL-delimited job (id label cols rows) per line, fan out across cores.
+# Emit one NUL-delimited job (id label cols rows sparse) per line, fan out across cores.
 for entry in "${MODELS[@]}"; do
     id="${entry%%:*}"
     label="${entry##*:}"
     for size in "${SIZES[@]}"; do
         read -r cols rows <<<"$size"
-        printf '%s\0%s\0%s\0%s\0' "$id" "$label" "$cols" "$rows"
+        printf '%s\0%s\0%s\0%s\0%s\0' "$id" "$label" "$cols" "$rows" "false"
     done
-done | xargs -0 -n4 -P "$JOBS" bash -c 'render "$@"' _
+    for size in "${SPARSE_SIZES[@]}"; do
+        read -r cols rows <<<"$size"
+        printf '%s\0%s\0%s\0%s\0%s\0' "$id" "$label" "$cols" "$rows" "true"
+    done
+done | xargs -0 -n5 -P "$JOBS" bash -c 'render "$@"' _
 
-echo "Done. ${#MODELS[@]} models x ${#SIZES[@]} sizes -> $OUT/ (parallel: $JOBS jobs)"
+echo "Done. ${#MODELS[@]} models x ($((${#SIZES[@]} + ${#SPARSE_SIZES[@]}))) sizes -> $OUT/ (parallel: $JOBS jobs)"
