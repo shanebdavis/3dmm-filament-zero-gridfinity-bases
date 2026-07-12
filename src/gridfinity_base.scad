@@ -368,6 +368,30 @@ module grid(s) {
 }
 
 // ------------------------------------------------------------
+// Cavity vents. At every interior 4-cell crossing, the Solid corners' relief
+// notches (mesh_corner_rigid_inner, z 0.6..3.25) combine into five sealed air
+// pockets: a 1.4 x 1.4 one on the crossing point and a 0.1 x 0.8 one at each arm
+// tip (12mm out). Sealed cavities are intentional — they split the wide double
+// wall into separated perimeter lines — but a sealed cavity is always a separate
+// shell in the exported mesh, so slicers' "Split to Objects" breaks the pockets
+// out as loose little boxes (and quietly deletes the inner structure from the
+// plate). Venting each pocket to the underside with a hair-thin channel through
+// the 0.6mm floor joins it to the outer boundary: the mesh becomes one connected
+// shell and the cavity survives splitting. The channels are far below one line
+// width, so slicers drop them and the printed plate is unchanged.
+module crossing_vents(s) {
+    if (s_ncols(s) > 1 && s_nrows(s) > 1)
+        for (i = [1 : s_ncols(s) - 1], j = [1 : s_nrows(s) - 1])
+            if (cell_at(s, i-1, j-1) && cell_at(s, i, j-1) &&
+                cell_at(s, i-1, j)   && cell_at(s, i, j))
+                translate([i * pitch, j * pitch, 0]) {
+                    translate([-0.1, -0.1, -0.1]) cube([0.2, 0.2, 0.8]);
+                    for (r = [0, 90, 180, 270]) rotate([0, 0, r])
+                        translate([11.9, -0.1, -0.1]) cube([0.1, 0.2, 0.8]);
+                }
+}
+
+// ------------------------------------------------------------
 // Drawer spacers.
 function plate_w(s) = floor(s_cols(s)) * pitch + (s_half_w(s) ? pitch / 2 : 0);
 function plate_h(s) = floor(s_rows(s)) * pitch + (s_half_h(s) ? pitch / 2 : 0);
@@ -423,8 +447,18 @@ module spacers(s) {
 
 // The whole assembly for one plate spec. Optionally shifted (below) so its X/Y
 // footprint (plate plus any asymmetric spacers) is centered on the origin; Z is
-// left sitting on the bed.
-module assembly(s) { grid(s); spacers(s); }
+// left sitting on the bed. Solid models get their sealed notch cavities vented
+// (see crossing_vents); the flexible-net models have no cavities to vent.
+module assembly(s) {
+    if (model == "rigid" || model == "net_rigid")
+        difference() {
+            union() { grid(s); spacers(s); }
+            crossing_vents(s);
+        }
+    else {
+        grid(s); spacers(s);
+    }
+}
 
 // ------------------------------------------------------------
 // Manual mode: one plate built straight from the Customizer settings.
