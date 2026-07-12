@@ -67,8 +67,10 @@ tools/             STL → polyhedron() inliner (regenerates the geometry baked 
 inline-stls.sh     Convenience wrapper: re-inline the STLs into the .scad
 generate.sh        Batch-render the standard sizes for every model type
 export_plates.sh   Auto Baseplates: render each plate to its own STL (build/plates/)
-make_makerworld.sh Generate the two MakerWorld customizer variants (build/)
+make_makerworld.sh Generate the two MakerWorld customizer variants (build-src/)
 tools/build_variants.py  The variant builder behind make_makerworld.sh
+build-src/         The generated customizer variants, committed so the shipped
+                   files exist verbatim even without rerunning the generator
 ```
 
 `src/gridfinity_base.scad` is **self-contained**: the corner / connector geometry is
@@ -159,8 +161,8 @@ the one source file:
 
 ```
 ./make_makerworld.sh
-# -> build/3DMM Filament Zero Gridfinity Single Baseplate.scad   (Single-Plate)
-# -> build/3DMM Filament Zero Gridfinity Multi Baseplate.scad    (Multi-Plate)
+# -> build-src/3DMM Filament Zero Gridfinity Single Baseplate.scad   (Single-Plate)
+# -> build-src/3DMM Filament Zero Gridfinity Multi Baseplate.scad    (Multi-Plate)
 ```
 
 - **Single-Plate** exposes Model, Grid, Drawer Spacers, Custom Shape and
