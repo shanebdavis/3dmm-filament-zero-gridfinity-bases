@@ -42,6 +42,7 @@ SIZES=(
 
 # Sizes also rendered with the sparse option on, one per model.
 SPARSE_SIZES=(
+    "4 4"
     "6 6"
 )
 

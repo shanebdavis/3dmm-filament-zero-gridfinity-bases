@@ -61,8 +61,10 @@ VARIANTS = [
             ("Advanced", ["@Advanced"]),
         ],
         # Ship with a real layout on screen instead of the manual fallback,
-        # and default to whole 42mm squares (half tiles opt-in).
-        "overrides": {"cover_width": "400", "cover_depth": "400",
+        # default to whole 42mm squares (half tiles opt-in), and default to
+        # Beam+ - multi-plate users usually want the plates to interconnect.
+        "overrides": {"model": "\"net_rigid\"",
+                      "cover_width": "400", "cover_depth": "400",
                       "half_tiles": "false"},
     },
 ]

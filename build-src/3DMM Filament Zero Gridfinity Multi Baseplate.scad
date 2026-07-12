@@ -18,7 +18,7 @@
 
 /* [Basic] */
 // Which base style to build
-model = "rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam+]
+model = "net_rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam+]
 
 // Cover a whole area (a drawer, a shelf) with auto-sized plates: pick your printer,
 // set BOTH cover sizes non-zero, and the solver fills the area with the largest grid
