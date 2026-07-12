@@ -165,13 +165,16 @@ the one source file:
 # -> build-src/3DMM Filament Zero Gridfinity Multi Baseplate.scad    (Multi-Plate)
 ```
 
-- **Single-Plate** exposes Model, Grid, Drawer Spacers, Custom Shape and
-  Advanced — the classic one-plate customizer, with the Auto Baseplates solver
-  pinned off.
-- **Multi-Plate** ("Baseplate Set") exposes Model, then Auto Baseplate Set
-  Generation — pick your printer, enter the area to cover — then Advanced. The
-  manual Grid / Drawer Spacers / Custom Shape settings are pinned off, and it
-  ships with a 400×400 mm cover area so the first preview shows a real layout.
+MakerWorld auto-expands only the *first* parameter group, so each variant leads
+with a **Basic** group holding everything a user normally touches:
+
+- **Single-Plate**: Basic (model, grid size, sparse, drawer spacers), then
+  Custom Shape and Advanced — the classic one-plate customizer, with the Auto
+  Baseplates solver pinned off.
+- **Multi-Plate**: Basic (model, printer, area to cover, fill toggles, sparse),
+  then Advanced. The manual Grid / Drawer Spacers / Custom Shape settings are
+  pinned off, and it ships with a 400×400 mm cover area so the first preview
+  shows a real layout.
 
 Both are plain single-output scripts — deliberately **no Parametric Model
 Maker multi-plate hooks** — so MakerWorld keeps the **STL download** button on

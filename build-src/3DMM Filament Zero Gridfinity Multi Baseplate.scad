@@ -16,13 +16,10 @@
 //  File -> Export -> Export as STL.
 // ============================================================
 
-/* [Model] */
+/* [Basic] */
 // Which base style to build
 model = "rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam+]
-// Sparse plates: merge cells up to double width/depth and delete the internal walls between them - a big filament and print-time saver on large areas. Corners stay at standard Gridfinity positions so bins seat and tile normally, just with less support under them. Half cells are never merged; ignored when Custom Shape cuts are set.
-sparse = false;
 
-/* [Auto Baseplate Set Generation] */
 // Cover a whole area (a drawer, a shelf) with auto-sized plates: pick your printer,
 // set BOTH cover sizes non-zero, and the solver fills the area with the largest grid
 // that fits, splits it into plates sized for your printer, and turns the leftover
@@ -43,6 +40,9 @@ cover_depth = 400; // [0:1:2000]
 drawer_spacers = true;
 // Use a trailing half-size (21mm) column/row when it fits the cover size better. Uncheck for whole 42mm squares only - the leftover goes to the drawer spacers instead.
 half_tiles = true;
+
+// Sparse plates: merge cells up to double width/depth and delete the internal walls between them - a big filament and print-time saver on large areas. Corners stay at standard Gridfinity positions so bins seat and tile normally, just with less support under them. Half cells are never merged; ignored when Custom Shape cuts are set.
+sparse = false;
 
 /* [Advanced] */
 // Center on the plate

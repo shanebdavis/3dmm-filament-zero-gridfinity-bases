@@ -16,19 +16,18 @@
 //  File -> Export -> Export as STL.
 // ============================================================
 
-/* [Model] */
+/* [Basic] */
 // Which base style to build
 model = "rigid"; // [net_light:Net+, net_heavy:Tape+, rigid:Beam, net_rigid:Beam+]
-// Sparse plates: merge cells up to double width/depth and delete the internal walls between them - a big filament and print-time saver on large areas. Corners stay at standard Gridfinity positions so bins seat and tile normally, just with less support under them. Half cells are never merged; ignored when Custom Shape cuts are set.
-sparse = false;
 
-/* [Grid] */
 // Squares wide
 columns = 4; // [1:0.5:10]
 // Squares deep
 rows = 4;    // [1:0.5:10]
 
-/* [Drawer Spacers] */
+// Sparse plates: merge cells up to double width/depth and delete the internal walls between them - a big filament and print-time saver on large areas. Corners stay at standard Gridfinity positions so bins seat and tile normally, just with less support under them. Half cells are never merged; ignored when Custom Shape cuts are set.
+sparse = false;
+
 // Outward spacer on each side (mm) so the plate sits flush in a drawer. 0 = none.
 // Capped at 41 mm — past that, just add another Gridfinity cell instead.
 // Front Spacer (mm)
@@ -87,9 +86,6 @@ row_10_right = 0; // [0:1:9]
 centered = true;
 // Grid spacing in mm (42: standard gridfinity, 84: double, 168: quad)
 pitch = 42;      // [21:1:168]
-
-
-
 // Customize the preview color to match your filament. Use standard HTML color codes: e.g. #ff0000 for red. This does not affect the model output.
 preview_color = "#0099ff";
 
